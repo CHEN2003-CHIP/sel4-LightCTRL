@@ -54,6 +54,8 @@ make run
 
 
 #### 作者声明
+```
+
 lightdemo/
 ├── Makefile          # 构建配置文件
 ├── lightctl.c        # 车灯控制组件（定时逻辑+命令发送）
@@ -62,5 +64,6 @@ lightdemo/
 │   └── printf.h      # 轻量printf实现头文件
 ├── printf.c          # 轻量printf实现
 └── vmm/              # 可选VMM相关代码（未启用）
+```
 
 USTC-CHEN ------AUTHOR
