@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<system>
+    <!-- Define your system here -->
+    <memory_region name="gpio_mmio" size="0x1000" phys_addr="0x9010000" />
+    <memory_region name="cmd_buffer_gp_lc" size="0x1000" />
+    <memory_region name="input_buffer_ci_lc" size="0x1000" />
+    <!-- <memory_region name="output_buffer" size="0x1000" /> --> 
+    <memory_region name="uart_phys" size="0x1000" phys_addr="0x9000000" />
+
+    <!-- GPIO模块 操作底层硬件-->
+    <protection_domain name="gpio" priority="250">
+        <map mr="gpio_mmio" vaddr="0x4000000" perms="rw" cached="false"
+            setvar_vaddr="gpio_base_vaddr" />
+        <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
+        <!-- <map mr="output_buffer" vaddr="0x5000000" perms="rw" setvar_vaddr="output_buffer"/> --> 
+        <program_image path="gpio.elf"/>
+        
+    </protection_domain>
+
+    <!-- LIGHTCTL模块 转发指令，接收成功信号-->
+    <protection_domain name="lightctl" priority="200">
+        <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
+        <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
+        <program_image path="lightctl.elf"/>
+        <!-- UART中断配置 -->
+        <!-- 分配互斥锁能力给客户端 -->
+        <!-- <irq irq="27" id="0" trigger="edge" /> -->
+        
+    </protection_domain>
+
+    <!-- COMMANDIN模块 解析指令，校验（模拟指令输入）-->
+    <protection_domain name="commandin" priority="254">
+        <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
+        <map mr="uart_phys" vaddr="0x4000000" perms="rw" cached="false"
+            setvar_vaddr="uart_base_vaddr" />
+        <program_image path="commandin.elf"/>
+        <!-- UART中断配置 -->
+        <irq irq="33" id="0" />
+    </protection_domain>
+
+    <!-- FAULTMG模块 处理异常-->
+    <protection_domain name="fault_mg" priority="210">
+        <program_image path="faultmg.elf"/>  
+    </protection_domain>
+
+    <!-- GPIO-LIGHTCTL -->
+    <channel>
+        <end pd="gpio" id="1" />
+        <end pd="lightctl" id="2" />
+    </channel>
+
+    <!-- COMMANDIN-LIGHTCTL -->
+    <channel>
+        <end pd="commandin" id="3" />
+        <end pd="lightctl" id="4" />
+    </channel>
+
+    <!-- FAULTMG-LIGHTCTL -->
+    <channel>
+        <end pd="fault_mg" id="5"/>
+        <end pd="lightctl" id="6"/>
+    </channel>
+
+    <!-- FAULTMG-GPIO -->
+    <channel>
+        <end pd="fault_mg" id="7"/>
+        <end pd="gpio" id="8"/>
+    </channel>
+
+    
+
+</system>
