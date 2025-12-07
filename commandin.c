@@ -13,6 +13,7 @@
 #include <microkit.h>
 #include "printf.h"
 #include <stdatomic.h>
+#include "logger.h"
 
 /*
 ---------COMMAND---------
@@ -82,7 +83,6 @@ uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
  * @return 无
  */
 void uart_init() {
-    printf("uart_init()\n");
     *REG_PTR(uart_base_vaddr, UARTIMSC) = 0x50;
 }
 
@@ -93,7 +93,7 @@ void uart_init() {
  * @return int 读取到的字符ASCII码，无数据时返回0
  */
 int uart_get_char() {
-    printf("uart_get_char()\n");
+    
     int ch = 0;
 
     if ((*REG_PTR(uart_base_vaddr, UARTFR) & PL011_UARTFR_RXFE) == 0) {
@@ -162,9 +162,10 @@ void init(void) {
     // First we initialise the UART device, which will write to the
     // device's hardware registers. Which means we need access to
     // the UART device.
+    
     uart_init();
-    printf("commandin : starting\n");
-   
+    
+    LOG_INFO("COMMAND_IN SERVER IS RUNNING");
 }
 
 void write_command(int cm){
@@ -212,7 +213,7 @@ void send_command(int ch)
             break;
     }
     if(operationNum==-1){
-        printf("error operation num\n");
+        LOG_ERROR("error operation num\n");
         return;
     }
     write_command(operationNum);
@@ -248,7 +249,7 @@ void notified(microkit_channel channel) {
 
     }
     else{
-        printf("无法解析的通道信号\n");
+        LOG_ERROR("无法解析的通道信号\n");
     }
     
 }

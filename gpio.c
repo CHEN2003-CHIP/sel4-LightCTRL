@@ -12,6 +12,7 @@
 #include <microkit.h>
 #include "printf.h"
 #include <stdatomic.h>
+#include "logger.h"
 
 uintptr_t gpio_base_vaddr;  // 运行时会被赋值的基地址
 uintptr_t cmd_buffer;
@@ -45,11 +46,12 @@ void init(void) {
                  (1 << PIN_TURN_LEFT)  |  // 左转向灯引脚设为输出
                  (1 << PIN_TURN_RIGHT);   // 右转向灯引脚设为输出
 
-    printf("GPIO PD初始化完成：\n");
-    printf("  近光灯引脚(%d)、远光灯引脚(%d)、左转向灯引脚(%d)、右转向灯引脚(%d)均配置为输出\n",
+    LOG_INFO("GPIO PD初始化完成");
+    LOG_INFO("  近光灯引脚(%d)、远光灯引脚(%d)、左转向灯引脚(%d)、右转向灯引脚(%d)均配置为输出",
            PIN_LOW_BEAM, PIN_HIGH_BEAM, PIN_TURN_LEFT, PIN_TURN_RIGHT);
-    printf("GPIO: starting\n");
+    LOG_INFO("GPIO: starting\n");
 }
+
 /**
  * @brief 根据目标车灯编号获取对应GPIO引脚
  * @details 内部静态函数，映射车灯类型编号到物理引脚编号
@@ -101,7 +103,7 @@ void notified(microkit_channel channel) {
         uint8_t pin = get_pin_by_target(target);
 
         if (pin == 0xFF) {
-            printf("GPIO PD：无效命令（目标车灯=%d）\n", target);
+            LOG_ERROR("GPIO PD：无效命令（目标车灯=%d）\n", target);
             //告诉故障处理
 
             return;
@@ -112,16 +114,16 @@ void notified(microkit_channel channel) {
         volatile uint32_t* gpio_out = REG_PTR(gpio_base_vaddr, GPIO_OUT_OFFSET);
         uint32_t original_gpio_val = *gpio_out;  // 读取操作前的完整GPIO_OUT值
         uint8_t original_state = (original_gpio_val >> pin) & 1;  // 提取目标引脚的原始状态（0=关，1=开）
-        printf("GPIO PD：%s原始状态（引脚=%d）：%s\n", 
+        LOG_INFO("GPIO PD：%s原始状态（引脚=%d）：%s\n", 
             get_name_by_target(target), pin, original_state ? "开启" : "关闭");
         if (op == 1) {
             *gpio_out |= (1 << pin);  // 开灯（置位对应引脚）
-            printf("GPIO PD：%s开启（引脚=%d）\n", get_name_by_target(target), pin);
+            LOG_INFO("GPIO PD：%s开启（引脚=%d）", get_name_by_target(target), pin);
         } else if (op == 0) {
             *gpio_out &= ~(1 << pin);  // 关灯（清除对应引脚）
-            printf("GPIO PD：%s关闭（引脚=%d）\n", get_name_by_target(target), pin);
+            LOG_INFO("GPIO PD：%s关闭（引脚=%d）\n", get_name_by_target(target), pin);
         } else {
-            printf("GPIO PD：无效操作（操作码=%d）\n", op);
+            LOG_INFO("GPIO PD：无效操作（操作码=%d）\n", op);
         }
 
         //校验相关寄存器是否真的修改成功
@@ -129,7 +131,7 @@ void notified(microkit_channel channel) {
         // 操作后读取新状态
         uint32_t new_gpio_val = *gpio_out;  // 读取操作后的完整GPIO_OUT值
         uint8_t new_state = (new_gpio_val >> pin) & 1;  // 提取目标引脚的新状态（0=关，1=开）
-        printf("GPIO PD：%s操作后状态（引脚=%d）：%s\n", 
+        LOG_INFO("GPIO PD：%s操作后状态（引脚=%d）：%s\n", 
             get_name_by_target(target), pin, new_state ? "开启" : "关闭");
         if(new_state!=original_state){
             //通知lightctl成功
@@ -142,6 +144,6 @@ void notified(microkit_channel channel) {
 
 
     } else {
-        printf("其他请求无法响应\n");
+        LOG_ERROR("其他请求无法响应\n");
     }
 }

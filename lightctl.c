@@ -16,6 +16,7 @@
 #include <stdatomic.h>
 #include <string.h>
 #include <stdio.h>
+#include "logger.h"
 
 
 /* Microkit通信通道定义 */
@@ -27,8 +28,7 @@ uintptr_t cmd_buffer;
 uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
 
 void init(void) {
-    microkit_dbg_puts("LIGHTCTL : starting\n");
-    
+    LOG_INFO("LIGHTCTL : starting");
 }
 
 /**
@@ -42,8 +42,8 @@ void init(void) {
 void recieve_command()
 {
     uint8_t cmd = *(uint8_t*)input_buffer;
-    printf("lightctl:收到信号码：%x\n",cmd);
-    printf("转述进gpio 通信通道\n");
+    LOG_INFO("lightctl:收到信号码：%x",cmd);
+    LOG_INFO("转述进gpio 通信通道");
 
     //SEND THE CMD
     char* cmdbuf=(char*)cmd_buffer;
@@ -64,13 +64,13 @@ void notified(microkit_channel channel) {
     switch(channel)
     {
         case LIGHTCTL_CHANNEL:
-            printf("LIGHTCTL:RECIEVE GPIO SUCCESS!\n");
+            LOG_INFO("LIGHTCTL:RECIEVE GPIO SUCCESS!");
             break;
         case LIGHTCTL_COMMANDIN_CHANNEL:
             recieve_command();
             break;
         case LIGHTCTL_FAULTMG_CHANNEL:
-            printf("LIGHTCTL:FAILED TO CHANGE THE LIGHT | ERROR!\n");
+            LOG_INFO("LIGHTCTL:FAILED TO CHANGE THE LIGHT | ERROR!");
             break;
         default:
             break;

@@ -12,6 +12,7 @@
 #include <microkit.h>
 #include <stddef.h>
 #include "printf.h"
+#include "logger.h"
 
 /**
  * @def FAULTMG_GPIO
@@ -32,7 +33,7 @@
 uint32_t error_times=0;
 
 void init(void){
-    microkit_dbg_puts("FAULT_MGMT: 初始化完成，开始监测...\n");
+    LOG_INFO("FAULT_MGMT: 初始化完成，开始监测...\n");
 }
 
 /**
@@ -51,7 +52,7 @@ void notified(microkit_channel channel){
         }
     }
     else{
-        printf("FAULTMG:该信号无法识别\n");
+        LOG_ERROR("FAULTMG:该信号无法识别\n");
     }
 }
 
