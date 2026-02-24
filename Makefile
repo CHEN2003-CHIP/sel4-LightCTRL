@@ -51,8 +51,8 @@ IMAGES_PART_4 := gpio.elf lightctl.elf commandin.elf faultmg.elf
 #IMAGES_PART_4 := serial_server.elf client.elf wordle_server.elf vmm.elf
 # Note that these warnings being disabled is to avoid compilation errors while in the middle of completing each exercise part
 CFLAGS := -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -Wall -Wno-array-bounds -Wno-unused-variable -Wno-unused-function -Werror -I$(BOARD_DIR)/include -Ivmm/src/util -Iinclude -DBOARD_$(BOARD)
-LDFLAGS := -L$(BOARD_DIR)/lib
-LIBS := -lmicrokit -Tmicrokit.ld
+LDFLAGS := -L$(BOARD_DIR)/lib -L/usr/aarch64-linux-gnu/lib
+LIBS := -lmicrokit -Tmicrokit.ld -lc -lrt
 
 IMAGE_FILE_PART_1 = $(BUILD_DIR)/demo_part_one.img
 IMAGE_FILE_PART_2 = $(BUILD_DIR)/demo_part_two.img
@@ -75,12 +75,14 @@ directories:
 run: $(IMAGE_FILE)
 	qemu-system-aarch64 -machine virt,virtualization=on \
 		-cpu $(CPU) \
+		-rtc base=localtime \
 		-serial mon:stdio \
 		-device loader,file=$(IMAGE_FILE),addr=0x70000000,cpu-num=0 \
 		-m size=2G \
 		-nographic \
 		-netdev user,id=mynet0 \
 		-device virtio-net-device,netdev=mynet0,mac=52:55:00:d1:55:01
+		
 
 part1: directories $(BUILD_DIR)/gpio.elf $(IMAGE_FILE_PART_1)
 part2: directories $(BUILD_DIR)/lightctl.elf $(IMAGE_FILE_PART_2)

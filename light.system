@@ -6,14 +6,18 @@
     <memory_region name="input_buffer_ci_lc" size="0x1000" />
     <!-- <memory_region name="output_buffer" size="0x1000" /> --> 
     <memory_region name="uart_phys" size="0x1000" phys_addr="0x9000000" />
+    <memory_region name="timer_phys" size="0x1000" phys_addr="0x10011000" />
 
     <!-- GPIO模块 操作底层硬件-->
-    <protection_domain name="gpio" priority="250">
+    <protection_domain name="gpio" priority="254">
         <map mr="gpio_mmio" vaddr="0x4000000" perms="rw" cached="false"
             setvar_vaddr="gpio_base_vaddr" />
         <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
         <!-- <map mr="output_buffer" vaddr="0x5000000" perms="rw" setvar_vaddr="output_buffer"/> --> 
+        <map mr="timer_phys" vaddr="0x5000000" perms="rw" cached="false"
+            setvar_vaddr="timer_base_vaddr" />
         <program_image path="gpio.elf"/>
+        <!-- <irq irq="28" id="10" /> -->
         
     </protection_domain>
 
@@ -22,9 +26,7 @@
         <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
         <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
         <program_image path="lightctl.elf"/>
-        <!-- UART中断配置 -->
-        <!-- 分配互斥锁能力给客户端 -->
-        <!-- <irq irq="27" id="0" trigger="edge" /> -->
+        
         
     </protection_domain>
 
