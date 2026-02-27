@@ -40,6 +40,7 @@ GPIO_OBJS := $(PRINTF_OBJS) gpio.o
 LIGHTCTL_OBJS := $(PRINTF_OBJS) lightctl.o
 COMMANDIN_OBJS := $(PRINTF_OBJS) commandin.o
 FAULT_MG_OBJS := $(PRINTF_OBJS) faultmg.o
+SCHEDULER_OBJS := $(PRINTF_OBJS) scheduler.o
 #VMM_OBJS := $(PRINTF_OBJS) vmm.o psci.o smc.o fault.o vgic.o global_data.o vgic_v2.o
 
 BOARD_DIR := $(MICROKIT_SDK)/board/$(BOARD)/$(MICROKIT_CONFIG)
@@ -48,6 +49,7 @@ IMAGES_PART_1 := gpio.elf
 IMAGES_PART_2 := gpio.elf lightctl.elf 
 IMAGES_PART_3 := gpio.elf lightctl.elf commandin.elf
 IMAGES_PART_4 := gpio.elf lightctl.elf commandin.elf faultmg.elf
+IMAGES_PART_5 := gpio.elf lightctl.elf commandin.elf faultmg.elf scheduler.elf
 #IMAGES_PART_4 := serial_server.elf client.elf wordle_server.elf vmm.elf
 # Note that these warnings being disabled is to avoid compilation errors while in the middle of completing each exercise part
 CFLAGS := -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -Wall -Wno-array-bounds -Wno-unused-variable -Wno-unused-function -Werror -I$(BOARD_DIR)/include -Ivmm/src/util -Iinclude -DBOARD_$(BOARD)
@@ -58,6 +60,7 @@ IMAGE_FILE_PART_1 = $(BUILD_DIR)/demo_part_one.img
 IMAGE_FILE_PART_2 = $(BUILD_DIR)/demo_part_two.img
 IMAGE_FILE_PART_3 = $(BUILD_DIR)/demo_part_three.img
 IMAGE_FILE_PART_4 = $(BUILD_DIR)/demo_part_four.img
+IMAGE_FILE_PART_5 = $(BUILD_DIR)/demo_part_five.img
 #IMAGE_FILE_PART_4 = $(BUILD_DIR)/wordle_part_four.img
 IMAGE_FILE = $(BUILD_DIR)/loader.img
 REPORT_FILE = $(BUILD_DIR)/report.txt
@@ -88,6 +91,7 @@ part1: directories $(BUILD_DIR)/gpio.elf $(IMAGE_FILE_PART_1)
 part2: directories $(BUILD_DIR)/lightctl.elf $(IMAGE_FILE_PART_2)
 part3: directories $(BUILD_DIR)/commandin.elf $(IMAGE_FILE_PART_3)
 part4: directories $(BUILD_DIR)/faultmg.elf $(IMAGE_FILE_PART_4)
+part5: directories $(BUILD_DIR)/scheduler.elf $(IMAGE_FILE_PART_5)
 # part4: directories $(BUILD_DIR)/vmm.elf $(IMAGE_FILE_PART_4)
 
 $(BUILD_DIR)/%.o: %.c Makefile
@@ -121,6 +125,9 @@ $(BUILD_DIR)/commandin.elf: $(addprefix $(BUILD_DIR)/, $(COMMANDIN_OBJS))
 $(BUILD_DIR)/faultmg.elf: $(addprefix $(BUILD_DIR)/, $(FAULT_MG_OBJS))
 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
+$(BUILD_DIR)/scheduler.elf: $(addprefix $(BUILD_DIR)/, $(SCHEDULER_OBJS))
+	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+
 # $(BUILD_DIR)/vmm.elf: $(addprefix $(BUILD_DIR)/, $(VMM_OBJS))
 # 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
@@ -134,6 +141,9 @@ $(IMAGE_FILE_PART_3): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_3)) light.system
 	$(MICROKIT_TOOL) light.system --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
 
 $(IMAGE_FILE_PART_4): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_4)) light.system
+	$(MICROKIT_TOOL) light.system --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
+
+$(IMAGE_FILE_PART_5): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_5)) light.system
 	$(MICROKIT_TOOL) light.system --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
 
 # $(IMAGE_FILE_PART_4): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_4)) wordle.system

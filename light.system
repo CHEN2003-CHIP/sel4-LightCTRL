@@ -1,5 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <system>
+    <!--
+  灯光控制流程拓扑（seL4/Microkit 调度场景）
+  ┌───────────────────┐        1. 发原始信号通知        ┌───────────────────┐
+  │ 模拟信号输入模块   │───────────────────────────────→│ 灯光调度器模块     │
+  └───────────────────┘                                └───────────────────┘
+        │ (出错) X. 发错误通知                                 │
+        │                                                    │ 2. 仲裁通过后发允许通知
+        ▼                                                    ▼
+  ┌───────────────────┐        X. 发错误通知         ┌───────────────────┐
+  │ 错误处理模块       │←───────────────────────────│ 灯光控制模块       │
+  └───────────────────┘                             └───────────────────┘
+        │ (出错) X. 发错误通知                                 │
+        │                                                    │ 3. 校验解析后发操作通知
+        ▼                                                    ▼
+        │                                          ┌───────────────────┐
+        └──────────────────────────────────────────│ GPIO模块          │
+                                                   └───────────────────┘
+    -->
+
     <!-- Define your system here -->
     <memory_region name="gpio_mmio" size="0x1000" phys_addr="0x9010000" />
     <memory_region name="cmd_buffer_gp_lc" size="0x1000" />
@@ -7,9 +26,19 @@
     <!-- <memory_region name="output_buffer" size="0x1000" /> --> 
     <memory_region name="uart_phys" size="0x1000" phys_addr="0x9000000" />
     <memory_region name="timer_phys" size="0x1000" phys_addr="0x10011000" />
+    <memory_region name="shared_memory_for_scheduler" size="0x1000"/>
+
+    <!-- SHEDULER模块 用来调度-->
+    <protection_domain name="scheduler" priority="253" >
+        <map mr="shared_memory_for_scheduler" vaddr="0x4000000" perms="rw" cached="true"
+            setvar_vaddr="shared_memory_base_vaddr" />
+        <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
+        <program_image path="scheduler.elf"/>
+        <!-- <irq irq="28" id="10" /> -->
+    </protection_domain>
 
     <!-- GPIO模块 操作底层硬件-->
-    <protection_domain name="gpio" priority="254">
+    <protection_domain name="gpio" priority="252" >
         <map mr="gpio_mmio" vaddr="0x4000000" perms="rw" cached="false"
             setvar_vaddr="gpio_base_vaddr" />
         <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
@@ -18,20 +47,17 @@
             setvar_vaddr="timer_base_vaddr" />
         <program_image path="gpio.elf"/>
         <!-- <irq irq="28" id="10" /> -->
-        
     </protection_domain>
 
     <!-- LIGHTCTL模块 转发指令，接收成功信号-->
     <protection_domain name="lightctl" priority="200">
         <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
         <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
-        <program_image path="lightctl.elf"/>
-        
-        
+        <program_image path="lightctl.elf"/>     
     </protection_domain>
 
     <!-- COMMANDIN模块 解析指令，校验（模拟指令输入）-->
-    <protection_domain name="commandin" priority="254">
+    <protection_domain name="commandin" priority="250">
         <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
         <map mr="uart_phys" vaddr="0x4000000" perms="rw" cached="false"
             setvar_vaddr="uart_base_vaddr" />
@@ -54,7 +80,7 @@
     <!-- COMMANDIN-LIGHTCTL -->
     <channel>
         <end pd="commandin" id="3" />
-        <end pd="lightctl" id="4" />
+        <end pd="scheduler" id="4" />
     </channel>
 
     <!-- FAULTMG-LIGHTCTL -->
@@ -69,6 +95,10 @@
         <end pd="gpio" id="8"/>
     </channel>
 
-    
+    <!-- Scheduler notify lightctl -->
+    <channel>
+        <end pd="scheduler" id="9"/>
+        <end pd="lightctl" id="10"/>
+    </channel>
 
 </system>
