@@ -55,7 +55,7 @@ uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
 uintptr_t shared_memory_base_vaddr;//共享的信号结构体，具体定义见scheduler模块
 
 // ==============================================
-// 【核心修改】共享内存定义 (必须与scheduler完全一致)
+// 共享内存定义 
 // ==============================================
 #define FLAG_ALLOW_BRAKE       (1UL << 0)
 #define FLAG_ALLOW_TURN_LEFT   (1UL << 1)
@@ -85,7 +85,7 @@ static uint8_t g_last_brake_state = 0;   // 0=关，1=开
 static uint8_t g_last_position_state = 1;// 0=关，1=开（默认开）
 
 // ==============================================
-// 辅助函数：车速阈值校验
+// 车速阈值校验
 // ==============================================
 static bool check_speed_limit(microkit_channel ch) {
     if ((ch == CH_GPIO_TURN_LEFT_ON || ch == CH_GPIO_TURN_RIGHT_ON) 
@@ -105,7 +105,7 @@ static bool check_speed_limit(microkit_channel ch) {
 }
 
 // ==============================================
-// 辅助函数：模式互锁校验
+// 模式互锁校验
 // ==============================================
 static bool check_mode_conflict(microkit_channel ch) {
     if (ch == CH_GPIO_LOW_BEAM_OFF && g_last_beam_state == 2) {
@@ -183,7 +183,7 @@ void init(void) {
  * @note 仅处理预定义的三个通道，其他通道无响应动作
  */
 // ==============================================
-// 8. 强制入口点2：收到调度器通知时执行（核心逻辑）
+// 收到调度器通知时执行
 // ==============================================
 void notified(microkit_channel ch) {
     // 仅处理调度器的允许执行通知
@@ -195,7 +195,7 @@ void notified(microkit_channel ch) {
     }
 
     // ==========================================
-    // 调试打印 (使用新的宏)
+    // 调试打印
     // ==========================================
     LOG_INFO("--- LightCtrl State Check ---");
     LOG_INFO("Shmem: brake=%d, left=%d, right=%d, low=%d, high=%d, pos=%d",
@@ -215,7 +215,7 @@ void notified(microkit_channel ch) {
     LOG_INFO("GET SCHEDULER SIGANL");
 
     // ==========================================
-    // 8.1 处理刹车灯逻辑 (使用 IS_FLAG_SET)
+    // 处理刹车灯逻辑
     // ==========================================
     if (IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_BRAKE)) {
         if (g_last_brake_state != 1) {
@@ -232,7 +232,7 @@ void notified(microkit_channel ch) {
     }
 
     // ==========================================
-    // 8.2 处理转向灯逻辑
+    // 处理转向灯逻辑
     // ==========================================
     if (IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_TURN_LEFT)) {
         if (g_last_turn_state != 1) {
@@ -257,7 +257,7 @@ void notified(microkit_channel ch) {
     }
 
     // ==========================================
-    // 8.3 处理远近光灯逻辑
+    // 处理远近光灯逻辑
     // ==========================================
     if (IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_LOW_BEAM)) {
         if (g_last_beam_state != 1) {
@@ -284,7 +284,7 @@ void notified(microkit_channel ch) {
     }
 
     // ==========================================
-    // 8.4 处理示廓灯逻辑
+    // 处理示廓灯逻辑
     // ==========================================
     if (IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_POSITION)) {
         if (g_last_position_state != 1) {

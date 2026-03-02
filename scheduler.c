@@ -4,22 +4,20 @@
 #include <stddef.h>
 #include"include/logger.h"
 
-// ==============================================
-// 1. 手动宏定义（与SDF严格一致，SDK 2.0.1无setvar_id）
-// ==============================================
-// 通道ID：UART命令模块→调度器（对应你原代码的LIGHTCTL_CHANNEL=3）
+
+// 通道ID：UART命令模块→调度器
 #define CH_UART_CMD            4
 // 通道ID：调度器→灯光控制模块
 #define CH_LIGHT_CONTROL_ALLOW 9
 
-// 共享内存地址（SDF中配置的vaddr，与UART模块共享）
+// 共享内存地址
 uintptr_t shared_memory_base_vaddr;
 uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
 // #define SHMEM_VADDR            0x40000000
 // #define SHMEM_SIZE             0x1000  // 4KB
 
 // ==============================================
-// 2. 操作码定义（与你提供的uart_cmd_handler.c完全一致）
+// 操作码
 // ==============================================
 #define UART_CMD_LOW_BEAM_OFF   0x00  // 'l'
 #define UART_CMD_LOW_BEAM_ON    0x01  // 'L'
@@ -36,9 +34,7 @@ uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
 #define UART_CMD_BRAKE_ON       0x51
 
 
-// ==============================================
-// 共享内存数据结构 
-// ==============================================
+
 // 位掩码定义 (Bit Masks)
 #define FLAG_ALLOW_BRAKE       (1UL << 0)
 #define FLAG_ALLOW_TURN_LEFT   (1UL << 1)
@@ -51,13 +47,12 @@ uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
 #define IS_FLAG_SET(flags, mask)  (((flags) & (mask)) != 0)
 
 // ==============================================
-// 共享内存数据结构（仅调度器可写状态位，UART模块可写cmd）
+// 共享内存数据结构
 // ==============================================
 typedef struct {
     // UART命令模块写入的操作码
     volatile uint8_t  uart_cmd;
 
-    // 【核心修改】使用单一变量管理所有允许位
     volatile uint32_t allow_flags;
 
     // 原始信号参数
@@ -71,7 +66,7 @@ typedef struct {
 // static light_shmem_t *const g_shmem = (light_shmem_t *const)shared_memory_base_vaddr;
 static light_shmem_t * g_shmem = NULL;
 // ==============================================
-// 4. 强制入口点1：系统启动时调用（仅初始化一次）
+// 系统启动时调用
 // ==============================================
 void init(void) {
     g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
@@ -92,7 +87,7 @@ void init(void) {
 }
 
 // ==============================================
-// 5. 辅助函数：处理UART操作码
+// 处理UART操作码
 // ==============================================
 static bool process_uart_command(uint8_t cmd) {
     bool need_notify = false;
