@@ -75,7 +75,7 @@ make run
 ```
 注意lightdemo项目必须和microkit-sdk-2.0.1在同一级，否则需要自行修改makefile
 /*
- * lightdemo-copy
+ * lightdemo
  * ├── build/
  * ├── include/
  * ├── vmm/
