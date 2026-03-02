@@ -16,8 +16,24 @@
 #include <stdbool.h>
 #include <time.h>
 #include <stdio.h>
-#include <sys/time.h>  // 添加这一行
+#include <sys/time.h> 
 #include <sel4/sel4.h>
+
+// ==============================================
+// 通道定义 (必须与lightctl完全一致)
+// ==============================================
+#define CH_GPIO_TURN_LEFT_ON        20
+#define CH_GPIO_TURN_LEFT_OFF       21
+#define CH_GPIO_TURN_RIGHT_ON       22
+#define CH_GPIO_TURN_RIGHT_OFF      23
+#define CH_GPIO_BRAKE_ON            24
+#define CH_GPIO_BRAKE_OFF           25
+#define CH_GPIO_LOW_BEAM_ON         26
+#define CH_GPIO_LOW_BEAM_OFF        27
+#define CH_GPIO_HIGH_BEAM_ON        28
+#define CH_GPIO_HIGH_BEAM_OFF       29
+#define CH_GPIO_POSITION_ON         30
+#define CH_GPIO_POSITION_OFF        31
 
 uintptr_t gpio_base_vaddr;  // 运行时会被赋值的基地址
 uintptr_t cmd_buffer;
@@ -40,20 +56,24 @@ static bool right_turn_active = false;  // 右转向灯激活状态
 static uint8_t left_turn_state = 0;     // 左转向灯当前状态（0=灭，1=亮）
 static uint8_t right_turn_state = 0;    // 右转向灯当前状态（0=灭，1=亮）
 
-// 近光灯引脚
+// 灯引脚
 #define PIN_LOW_BEAM    0   // 近光灯
 #define PIN_HIGH_BEAM   1   // 远光灯
 #define PIN_TURN_LEFT   2   // 左转向灯
 #define PIN_TURN_RIGHT  3   // 右转向灯
+#define PIN_BRAKE        4   // 刹车灯 
+#define PIN_POSITION     5   // 示廓灯 
 
 // GPIO寄存器偏移量（根据硬件手册定义）
-#define GPIO_DIR_OFFSET 0x00  // 方向寄存器偏移（假设）
+
+#define REG_PTR(base, offset) ((volatile uint32_t *)((base) + (offset)))
+#define GPIO_DIR_OFFSET 0x00  // 方向寄存器偏移
 #define GPIO_OUT_OFFSET 0x04  // 输出寄存器偏移
 
-#define CMD_TARGET_MASK 0xF0  // 目标车灯掩码（高4位）
-#define CMD_OP_MASK     0x0F  // 操作掩码（低4位）
-#define CMD_TARGET(cmd) ((cmd >> 4) & 0x0F)  // 提取目标车灯（0-3）
-#define CMD_OP(cmd)     (cmd & 0x0F)         // 提取操作（0=关，1=开）
+// #define CMD_TARGET_MASK 0xF0  // 目标车灯掩码（高4位）
+// #define CMD_OP_MASK     0x0F  // 操作掩码（低4位）
+// #define CMD_TARGET(cmd) ((cmd >> 4) & 0x0F)  // 提取目标车灯（0-3）
+// #define CMD_OP(cmd)     (cmd & 0x0F)         // 提取操作（0=关，1=开）
 
 
 /**
@@ -67,9 +87,9 @@ static void timer_init() {
     *REG_PTR(timer_base_vaddr, TIMER_CTRL_OFFSET) = (1 << 0) | (1 << 1) | (1 << 7);
 }
 
-//-----------------TEST--------------------------------------------------------------
+//-----------------TODO::TEST FOR TIMER--------------------------------------------------------------
 
-// 方法2: 使用aarch64系统计数器（如果权限允许）
+// 使用aarch64系统计数器（如果权限允许）
 static inline uint64_t read_cntpct(void) {
     uint64_t val;
     asm volatile("mrs %0, cntpct_el0" : "=r"(val));
@@ -98,17 +118,22 @@ uint64_t ticks_to_ms(uint64_t ticks) {
     return (ticks * 1000ULL) / freq;
 }
 
-
 //------------------------------------------------------------------------------------
+
+
 void init(void) {
     // 初始化时，gpio_base_vaddr已有效，通过REG_PTR获取方向寄存器指针
     volatile uint32_t* gpio_dir = REG_PTR(gpio_base_vaddr, GPIO_DIR_OFFSET);
-    *gpio_dir |= (1 << PIN_LOW_BEAM)   |  // 近光灯引脚设为输出
-                 (1 << PIN_HIGH_BEAM)  |  // 远光灯引脚设为输出
-                 (1 << PIN_TURN_LEFT)  |  // 左转向灯引脚设为输出
-                 (1 << PIN_TURN_RIGHT);   // 右转向灯引脚设为输出
+    // 配置所有用到的引脚为输出模式
+    *gpio_dir |= (1 << PIN_LOW_BEAM)   |
+                 (1 << PIN_HIGH_BEAM)  |
+                 (1 << PIN_TURN_LEFT)  |
+                 (1 << PIN_TURN_RIGHT) |
+                 (1 << PIN_BRAKE)      |
+                 (1 << PIN_POSITION);
 
-    LOG_INFO("GPIO PD初始化完成");
+    LOG_INFO("GPIO Ctrl: Initialized. All pins set to output.");
+
     LOG_INFO("  近光灯引脚(%d)、远光灯引脚(%d)、左转向灯引脚(%d)、右转向灯引脚(%d)均配置为输出",
            PIN_LOW_BEAM, PIN_HIGH_BEAM, PIN_TURN_LEFT, PIN_TURN_RIGHT);
     LOG_INFO("GPIO: starting\n");
@@ -116,79 +141,23 @@ void init(void) {
     // 新增定时器初始化
     timer_init();
     LOG_INFO("GPIO PD初始化完成，定时器已启动（闪烁频率2Hz）");
-
-    printf("%d\n",get_system_ticks());
-    // LOG_INFO("时间: %ldms (500ms 开/关)",get_current_time_ms());
-}
-
-/**
- * @brief 定时器中断处理函数，切换转向灯状态
- */
-static void timer_handle_irq() {
-    // 清除定时器中断标志
-    *REG_PTR(timer_base_vaddr, TIMER_INTCLR_OFFSET) = 1;
-
-    // 左转向灯闪烁逻辑
-    if (left_turn_active) {
-        left_turn_state ^= 1;  // 翻转状态（0→1或1→0）
-        volatile uint32_t* gpio_out = REG_PTR(gpio_base_vaddr, GPIO_OUT_OFFSET);
-        if (left_turn_state) {
-            *gpio_out |= (1 << PIN_TURN_LEFT);  // 点亮
-            LOG_INFO("LEFT ON");
-        } else {
-            *gpio_out &= ~(1 << PIN_TURN_LEFT); // 熄灭
-            LOG_INFO("LEFT_OFF");
-        }
-    }
-
-    // 右转向灯闪烁逻辑
-    if (right_turn_active) {
-        right_turn_state ^= 1;  // 翻转状态
-        volatile uint32_t* gpio_out = REG_PTR(gpio_base_vaddr, GPIO_OUT_OFFSET);
-        if (right_turn_state) {
-            *gpio_out |= (1 << PIN_TURN_RIGHT); // 点亮
-        } else {
-            *gpio_out &= ~(1 << PIN_TURN_RIGHT); // 熄灭
-        }
-    }
-
-    // 确认中断处理完成
-    microkit_irq_ack(TIMER_IRQ_CHANNEL);
-}
-
-/**
- * @brief 根据目标车灯编号获取对应GPIO引脚
- * @details 内部静态函数，映射车灯类型编号到物理引脚编号
- * @param target 目标车灯编号（0=近光，1=远光，2=左转向，3=右转向）
- * @return uint8_t 对应引脚编号；无效目标返回0xFF
- */
-// 根据目标车灯获取对应引脚
-static uint8_t get_pin_by_target(uint8_t target) {
-    switch(target) {
-        case 0: return PIN_LOW_BEAM;
-        case 1: return PIN_HIGH_BEAM;
-        case 2: return PIN_TURN_LEFT;
-        case 3: return PIN_TURN_RIGHT;
-        default: return 0xFF;  // 无效目标
-    }
+    
 }
 
 
-/**
- * @brief 根据目标车灯编号获取车灯名称（调试用）
- * @details 内部静态函数，映射车灯类型编号到中文名称，用于日志打印
- * @param target 目标车灯编号（0=近光，1=远光，2=左转向，3=右转向）
- * @return const char* 车灯名称字符串指针；无效目标返回"未知车灯"
- */
-// 根据目标车灯获取名称[debug]
-static const char* get_name_by_target(uint8_t target) {
-    switch(target) {
-        case 0: return "近光灯";
-        case 1: return "远光灯";
-        case 2: return "左转向灯";
-        case 3: return "右转向灯";
-        default: return "未知车灯";
+// ==============================================
+// 设置GPIO引脚电平
+// ==============================================
+static void gpio_set_pin(uint8_t pin, bool level) {
+    volatile uint32_t* gpio_out = REG_PTR(gpio_base_vaddr, GPIO_OUT_OFFSET);
+    
+    if (level) {
+        *gpio_out |= (1 << pin);  // 置高 (开灯)
+    } else {
+        *gpio_out &= ~(1 << pin); // 置低 (关灯)
     }
+    
+    // TODO:这里可以添加读取回读寄存器进行校验的逻辑
 }
 
 /**
@@ -198,102 +167,68 @@ static const char* get_name_by_target(uint8_t target) {
  * @return 无
  * @note 仅处理GPIO_CHANNEL通道，其他通道打印不支持提示；异常时通过FAULT_NOTIFY_CHANNEL上报故障
  */
-void notified(microkit_channel channel) {
-    if (channel == GPIO_CHANNEL) {
-        // 从共享缓冲区读取命令（1字节：高4位目标，低4位操作）
-        uint8_t cmd = *(uint8_t*)cmd_buffer;
-        uint8_t target = CMD_TARGET(cmd);
-        uint8_t op = CMD_OP(cmd);
-        uint8_t pin = get_pin_by_target(target);
+void notified(microkit_channel ch) {
+    switch (ch) {
+        // --- 转向灯控制 ---
+        case CH_GPIO_TURN_LEFT_ON:
+            gpio_set_pin(PIN_TURN_LEFT, true);
+            LOG_INFO("GPIO: Left Turn ON");
+            break;
+        case CH_GPIO_TURN_LEFT_OFF:
+            gpio_set_pin(PIN_TURN_LEFT, false);
+            LOG_INFO("GPIO: Left Turn OFF");
+            break;
+        case CH_GPIO_TURN_RIGHT_ON:
+            gpio_set_pin(PIN_TURN_RIGHT, true);
+            LOG_INFO("GPIO: Right Turn ON");
+            break;
+        case CH_GPIO_TURN_RIGHT_OFF:
+            gpio_set_pin(PIN_TURN_RIGHT, false);
+            LOG_INFO("GPIO: Right Turn OFF");
+            break;
 
-        if (pin == 0xFF) {
-            LOG_ERROR("GPIO PD：无效命令（目标车灯=%d）", target);
-            //告诉故障处理
+        // --- 刹车灯控制 ---
+        case CH_GPIO_BRAKE_ON:
+            gpio_set_pin(PIN_BRAKE, true);
+            LOG_INFO("GPIO: Brake ON");
+            break;
+        case CH_GPIO_BRAKE_OFF:
+            gpio_set_pin(PIN_BRAKE, false);
+            LOG_INFO("GPIO: Brake OFF");
+            break;
 
-            return;
-        }
+        // --- 近光灯控制 ---
+        case CH_GPIO_LOW_BEAM_ON:
+            gpio_set_pin(PIN_LOW_BEAM, true);
+            LOG_INFO("GPIO: Low Beam ON");
+            break;
+        case CH_GPIO_LOW_BEAM_OFF:
+            gpio_set_pin(PIN_LOW_BEAM, false);
+            LOG_INFO("GPIO: Low Beam OFF");
+            break;
 
-        // 操作GPIO输出寄存器
-        uint32_t original_signal=-1;
-        volatile uint32_t* gpio_out = REG_PTR(gpio_base_vaddr, GPIO_OUT_OFFSET);
-        uint32_t original_gpio_val = *gpio_out;  // 读取操作前的完整GPIO_OUT值
-        uint8_t original_state = (original_gpio_val >> pin) & 1;  // 提取目标引脚的原始状态（0=关，1=开）
+        // --- 远光灯控制 ---
+        case CH_GPIO_HIGH_BEAM_ON:
+            gpio_set_pin(PIN_HIGH_BEAM, true);
+            LOG_INFO("GPIO: High Beam ON");
+            break;
+        case CH_GPIO_HIGH_BEAM_OFF:
+            gpio_set_pin(PIN_HIGH_BEAM, false);
+            LOG_INFO("GPIO: High Beam OFF");
+            break;
 
-        if(target!=2 && target!=3)
-        {
-            LOG_INFO("GPIO PD：%s原始状态（引脚=%d）：%s",
-                     get_name_by_target(target), pin, original_state ? "开启" : "关闭");
-            if (op == 1)
-            {
-                *gpio_out |= (1 << pin); // 开灯（置位对应引脚）
-                LOG_INFO("GPIO PD：%s开启（引脚=%d）", get_name_by_target(target), pin);
-            }
-            else if (op == 0)
-            {
-                *gpio_out &= ~(1 << pin); // 关灯（清除对应引脚）
-                LOG_INFO("GPIO PD：%s关闭（引脚=%d）", get_name_by_target(target), pin);
-            }
-            else
-            {
-                LOG_INFO("GPIO PD：无效操作（操作码=%d）", op);
-            }
+        // --- 示廓灯控制 ---
+        case CH_GPIO_POSITION_ON:
+            gpio_set_pin(PIN_POSITION, true);
+            LOG_INFO("GPIO: Position Light ON");
+            break;
+        case CH_GPIO_POSITION_OFF:
+            gpio_set_pin(PIN_POSITION, false);
+            LOG_INFO("GPIO: Position Light OFF");
+            break;
 
-            // 校验相关寄存器是否真的修改成功
-            //  检查执行结果（模拟故障检测：如命令执行后引脚状态未变则视为异常）
-            //  操作后读取新状态
-            uint32_t new_gpio_val = *gpio_out;             // 读取操作后的完整GPIO_OUT值
-            uint8_t new_state = (new_gpio_val >> pin) & 1; // 提取目标引脚的新状态（0=关，1=开）
-            LOG_INFO("GPIO PD：%s操作后状态（引脚=%d）：%s",
-                     get_name_by_target(target), pin, new_state ? "开启" : "关闭");
-            if (new_state != original_state)
-            {
-                // 通知lightctl成功
-                microkit_notify(GPIO_CHANNEL);
-            }
-            else
-            {
-                // 失败通知faultmg
-                microkit_notify(FAULT_NOTIFY_CHANNEL);
-            }
-        }
-        //处理左转向
-        else if(target==2){
-            if (op == 1) {
-                // 开启左转向灯：激活闪烁
-                left_turn_active = true;
-                LOG_INFO("左转向灯开始闪烁");
-            } else {
-                // 关闭左转向灯：停止闪烁并熄灭
-                left_turn_active = false;
-                left_turn_state = 0;
-                volatile uint32_t* gpio_out = REG_PTR(gpio_base_vaddr, GPIO_OUT_OFFSET);
-                *gpio_out &= ~(1 << PIN_TURN_LEFT);
-                LOG_INFO("左转向灯关闭");
-            }
-        }
-        // 处理右转向灯（target=3）
-        else if (target == 3) {
-            if (op == 1) {
-                // 开启右转向灯：激活闪烁
-                right_turn_active = true;
-                LOG_INFO("右转向灯开始闪烁");
-            } else {
-                // 关闭右转向灯：停止闪烁并熄灭
-                right_turn_active = false;
-                right_turn_state = 0;
-                volatile uint32_t* gpio_out = REG_PTR(gpio_base_vaddr, GPIO_OUT_OFFSET);
-                *gpio_out &= ~(1 << PIN_TURN_RIGHT);
-                LOG_INFO("右转向灯关闭");
-            }
-        }
-        
-
-    }
-    // 新增定时器中断处理
-    else if (channel == TIMER_IRQ_CHANNEL) {
-        timer_handle_irq();
-    }
-    else {
-        LOG_ERROR("其他请求无法响应\n");
+        default:
+            LOG_ERROR("GPIO: Unknown channel %d", ch);
+            break;
     }
 }

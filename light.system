@@ -51,6 +51,8 @@
 
     <!-- LIGHTCTL模块 转发指令，接收成功信号-->
     <protection_domain name="lightctl" priority="200">
+        <map mr="shared_memory_for_scheduler" vaddr="0x4000000" perms="rw" cached="true"
+            setvar_vaddr="shared_memory_base_vaddr" />
         <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
         <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
         <program_image path="lightctl.elf"/>     
@@ -99,6 +101,76 @@
     <channel>
         <end pd="scheduler" id="9"/>
         <end pd="lightctl" id="10"/>
+    </channel>
+
+    <!-- 为了区别各个通信功能，lightctl和gpio用多个channel来沟通 -->
+    <!-- // 通道ID：灯光控制→GPIO模块（硬件操作指令）
+        #define CH_GPIO_TURN_LEFT_ON        20
+        #define CH_GPIO_TURN_LEFT_OFF       21
+        #define CH_GPIO_TURN_RIGHT_ON       22
+        #define CH_GPIO_TURN_RIGHT_OFF      23
+        #define CH_GPIO_BRAKE_ON            24
+        #define CH_GPIO_BRAKE_OFF           25
+        #define CH_GPIO_LOW_BEAM_ON         26
+        #define CH_GPIO_LOW_BEAM_OFF        27
+        #define CH_GPIO_HIGH_BEAM_ON        28
+        #define CH_GPIO_HIGH_BEAM_OFF       29
+        #define CH_GPIO_POSITION_ON         30
+        #define CH_GPIO_POSITION_OFF        31 -->
+    <channel>
+        <end pd="lightctl" id="20"/>
+        <end pd="gpio" id="20"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="21"/>
+        <end pd="gpio" id="21"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="22"/>
+        <end pd="gpio" id="22"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="23"/>
+        <end pd="gpio" id="23"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="24"/>
+        <end pd="gpio" id="24"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="25"/>
+        <end pd="gpio" id="25"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="26"/>
+        <end pd="gpio" id="26"/>
+    </channel>
+    <channel>
+        <end pd="lightctl" id="27"/>
+        <end pd="gpio" id="27"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="28"/>
+        <end pd="gpio" id="28"/>
+    </channel>
+    <channel>
+        <end pd="lightctl" id="29"/>
+        <end pd="gpio" id="29"/>
+    </channel>
+    <channel>
+        <end pd="lightctl" id="30"/>
+        <end pd="gpio" id="30"/>
+    </channel>
+    <channel>
+        <end pd="lightctl" id="31"/>
+        <end pd="gpio" id="31"/>
     </channel>
 
 </system>

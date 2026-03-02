@@ -7,16 +7,16 @@
 
 # Loader Regions
 
-       <Region name=PD-ELF scheduler-0 addr=0x60248000 size=23304>
-       <Region name=PD-ELF scheduler-1 addr=0x6024e000 size=432>
-       <Region name=PD-ELF gpio-0 addr=0x6024f000 size=25416>
-       <Region name=PD-ELF gpio-1 addr=0x60256000 size=448>
-       <Region name=PD-ELF lightctl-0 addr=0x60257000 size=21552>
-       <Region name=PD-ELF lightctl-1 addr=0x6025d000 size=416>
-       <Region name=PD-ELF commandin-0 addr=0x6025e000 size=23352>
+       <Region name=PD-ELF scheduler-0 addr=0x60248000 size=24584>
+       <Region name=PD-ELF scheduler-1 addr=0x6024f000 size=432>
+       <Region name=PD-ELF gpio-0 addr=0x60250000 size=22112>
+       <Region name=PD-ELF gpio-1 addr=0x60256000 size=416>
+       <Region name=PD-ELF lightctl-0 addr=0x60257000 size=23872>
+       <Region name=PD-ELF lightctl-1 addr=0x6025d000 size=464>
+       <Region name=PD-ELF commandin-0 addr=0x6025e000 size=23512>
        <Region name=PD-ELF commandin-1 addr=0x60264000 size=432>
-       <Region name=PD-ELF fault_mg-0 addr=0x60265000 size=21240>
-       <Region name=PD-ELF fault_mg-1 addr=0x6026b000 size=416>
+       <Region name=PD-ELF fault_mg-0 addr=0x60265000 size=20848>
+       <Region name=PD-ELF fault_mg-1 addr=0x6026b000 size=400>
 
 # Monitor (Initial Task) Info
 
@@ -25,7 +25,7 @@
 
 # Allocated Kernel Objects Summary
 
-     # of allocated objects: 111
+     # of allocated objects: 112
 
 # Bootstrap Kernel Invocations Summary
 
@@ -34,8 +34,8 @@
 
 # System Kernel Invocations Summary
 
-     # of invocations   :        185
-     size of invocations:     13,184
+     # of invocations   :        212
+     size of invocations:     15,072
 
 # Allocated Kernel Objects Detail
 
@@ -48,8 +48,8 @@
     Page(4 KiB): MR=ELF:scheduler-0 @ 6024b000         9 cap_addr=8000000000000011 phys_addr=6024b000
     Page(4 KiB): MR=ELF:scheduler-0 @ 6024c000         9 cap_addr=8000000000000012 phys_addr=6024c000
     Page(4 KiB): MR=ELF:scheduler-0 @ 6024d000         9 cap_addr=8000000000000013 phys_addr=6024d000
-    Page(4 KiB): MR=ELF:scheduler-1 @ 6024e000         9 cap_addr=8000000000000014 phys_addr=6024e000
-    Page(4 KiB): MR=ELF:gpio-0 @ 6024f000              9 cap_addr=8000000000000015 phys_addr=6024f000
+    Page(4 KiB): MR=ELF:scheduler-0 @ 6024e000         9 cap_addr=8000000000000014 phys_addr=6024e000
+    Page(4 KiB): MR=ELF:scheduler-1 @ 6024f000         9 cap_addr=8000000000000015 phys_addr=6024f000
     Page(4 KiB): MR=ELF:gpio-0 @ 60250000              9 cap_addr=8000000000000016 phys_addr=60250000
     Page(4 KiB): MR=ELF:gpio-0 @ 60251000              9 cap_addr=8000000000000017 phys_addr=60251000
     Page(4 KiB): MR=ELF:gpio-0 @ 60252000              9 cap_addr=8000000000000018 phys_addr=60252000
@@ -137,19 +137,20 @@
     PageTable: PD=gpio VADDR=0x5000000                 11 cap_addr=800000000000006a phys_addr=602a8000
     PageTable: PD=gpio VADDR=0xffffe00000              11 cap_addr=800000000000006b phys_addr=602a9000
     PageTable: PD=lightctl VADDR=0x200000              11 cap_addr=800000000000006c phys_addr=602aa000
-    PageTable: PD=lightctl VADDR=0x5000000             11 cap_addr=800000000000006d phys_addr=602ab000
-    PageTable: PD=lightctl VADDR=0xffffe00000          11 cap_addr=800000000000006e phys_addr=602ac000
-    PageTable: PD=commandin VADDR=0x200000             11 cap_addr=800000000000006f phys_addr=602ad000
-    PageTable: PD=commandin VADDR=0x4000000            11 cap_addr=8000000000000070 phys_addr=602ae000
-    PageTable: PD=commandin VADDR=0x5000000            11 cap_addr=8000000000000071 phys_addr=602af000
-    PageTable: PD=commandin VADDR=0xffffe00000         11 cap_addr=8000000000000072 phys_addr=602b0000
-    PageTable: PD=fault_mg VADDR=0x200000              11 cap_addr=8000000000000073 phys_addr=602b1000
-    PageTable: PD=fault_mg VADDR=0xffffe00000          11 cap_addr=8000000000000074 phys_addr=602b2000
-    CNode: PD=scheduler                                4 cap_addr=8000000000000075 phys_addr=602b4000
-    CNode: PD=gpio                                     4 cap_addr=8000000000000076 phys_addr=602b8000
-    CNode: PD=lightctl                                 4 cap_addr=8000000000000077 phys_addr=602bc000
-    CNode: PD=commandin                                4 cap_addr=8000000000000078 phys_addr=602c0000
-    CNode: PD=fault_mg                                 4 cap_addr=8000000000000079 phys_addr=602c4000
+    PageTable: PD=lightctl VADDR=0x4000000             11 cap_addr=800000000000006d phys_addr=602ab000
+    PageTable: PD=lightctl VADDR=0x5000000             11 cap_addr=800000000000006e phys_addr=602ac000
+    PageTable: PD=lightctl VADDR=0xffffe00000          11 cap_addr=800000000000006f phys_addr=602ad000
+    PageTable: PD=commandin VADDR=0x200000             11 cap_addr=8000000000000070 phys_addr=602ae000
+    PageTable: PD=commandin VADDR=0x4000000            11 cap_addr=8000000000000071 phys_addr=602af000
+    PageTable: PD=commandin VADDR=0x5000000            11 cap_addr=8000000000000072 phys_addr=602b0000
+    PageTable: PD=commandin VADDR=0xffffe00000         11 cap_addr=8000000000000073 phys_addr=602b1000
+    PageTable: PD=fault_mg VADDR=0x200000              11 cap_addr=8000000000000074 phys_addr=602b2000
+    PageTable: PD=fault_mg VADDR=0xffffe00000          11 cap_addr=8000000000000075 phys_addr=602b3000
+    CNode: PD=scheduler                                4 cap_addr=8000000000000076 phys_addr=602b4000
+    CNode: PD=gpio                                     4 cap_addr=8000000000000077 phys_addr=602b8000
+    CNode: PD=lightctl                                 4 cap_addr=8000000000000078 phys_addr=602bc000
+    CNode: PD=commandin                                4 cap_addr=8000000000000079 phys_addr=602c0000
+    CNode: PD=fault_mg                                 4 cap_addr=800000000000007a phys_addr=602c4000
 
 # Bootstrap Kernel Invocations Detail
 
@@ -651,26 +652,26 @@
          node_index           1
          node_depth           1
          node_offset          100
-         num_objects          17
+         num_objects          18
     0x0036 Untyped              - Retype            - 0x0000000000000048 (Untyped @ 0x60280000:0x80000)
          object_type          4 (SEL4_CNODE_OBJECT - variable size)
          size_bits            9 (0x200)
          root (cap)           0x0000000000000063 (CNode: root)
          node_index           1
          node_depth           1
-         node_offset          117
+         node_offset          118
          num_objects          5
     0x0037 IRQ Control          - Get               - 0x0000000000000004 (IRQ Control)
          irq                  33
          trigger              0
          dest_root (cap)      0x0000000000000063 (CNode: root)
-         dest_index           9223372036854775930
+         dest_index           9223372036854775931
          dest_depth           64
     0x0038 ASID Pool            - Assign            - 0x0000000000000006 (ASID Pool: init)
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
       REPEAT: count=5
     0x0039 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           123
+         dest_index           124
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000039 (Page(4 KiB): MR=shared_memory_for_scheduler #0)
@@ -678,7 +679,7 @@
          rights               3
          badge                0
     0x003a CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           124
+         dest_index           125
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000038 (Page(4 KiB): MR=input_buffer_ci_lc #0)
@@ -686,24 +687,24 @@
          rights               3
          badge                0
     0x003b CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           125
+         dest_index           126
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000000e (Page(4 KiB): MR=ELF:scheduler-0 @ 60248000)
          src_depth            64
          rights               2
          badge                0
-      REPEAT: count=6
+      REPEAT: count=7
     0x003c CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           131
+         dest_index           133
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
-         src_obj (cap)        0x8000000000000014 (Page(4 KiB): MR=ELF:scheduler-1 @ 6024e000)
+         src_obj (cap)        0x8000000000000015 (Page(4 KiB): MR=ELF:scheduler-1 @ 6024f000)
          src_depth            64
          rights               3
          badge                0
     0x003d CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           132
+         dest_index           134
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000003a (Page(4 KiB): MR=STACK:scheduler #0)
@@ -711,7 +712,7 @@
          rights               3
          badge                0
     0x003e CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           133
+         dest_index           135
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000000a (Page(4 KiB): MR=gpio_mmio @ 9010000)
@@ -719,7 +720,7 @@
          rights               3
          badge                0
     0x003f CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           134
+         dest_index           136
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000037 (Page(4 KiB): MR=cmd_buffer_gp_lc #0)
@@ -727,7 +728,7 @@
          rights               3
          badge                0
     0x0040 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           135
+         dest_index           137
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000000d (Page(4 KiB): MR=timer_phys @ 10011000)
@@ -735,16 +736,16 @@
          rights               3
          badge                0
     0x0041 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           136
+         dest_index           138
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
-         src_obj (cap)        0x8000000000000015 (Page(4 KiB): MR=ELF:gpio-0 @ 6024f000)
+         src_obj (cap)        0x8000000000000016 (Page(4 KiB): MR=ELF:gpio-0 @ 60250000)
          src_depth            64
          rights               2
          badge                0
-      REPEAT: count=7
+      REPEAT: count=6
     0x0042 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           143
+         dest_index           144
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000001c (Page(4 KiB): MR=ELF:gpio-1 @ 60256000)
@@ -752,7 +753,7 @@
          rights               3
          badge                0
     0x0043 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           144
+         dest_index           145
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000003b (Page(4 KiB): MR=STACK:gpio #0)
@@ -760,23 +761,31 @@
          rights               3
          badge                0
     0x0044 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           145
+         dest_index           146
+         dest_depth           8
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000039 (Page(4 KiB): MR=shared_memory_for_scheduler #0)
+         src_depth            64
+         rights               3
+         badge                0
+    0x0045 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           147
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000037 (Page(4 KiB): MR=cmd_buffer_gp_lc #0)
          src_depth            64
          rights               3
          badge                0
-    0x0045 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           146
+    0x0046 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           148
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000038 (Page(4 KiB): MR=input_buffer_ci_lc #0)
          src_depth            64
          rights               3
          badge                0
-    0x0046 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           147
+    0x0047 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           149
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000001d (Page(4 KiB): MR=ELF:lightctl-0 @ 60257000)
@@ -784,40 +793,40 @@
          rights               2
          badge                0
       REPEAT: count=6
-    0x0047 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           153
+    0x0048 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           155
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000023 (Page(4 KiB): MR=ELF:lightctl-1 @ 6025d000)
          src_depth            64
          rights               3
          badge                0
-    0x0048 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           154
+    0x0049 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           156
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000003c (Page(4 KiB): MR=STACK:lightctl #0)
          src_depth            64
          rights               3
          badge                0
-    0x0049 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           155
+    0x004a CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           157
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000038 (Page(4 KiB): MR=input_buffer_ci_lc #0)
          src_depth            64
          rights               3
          badge                0
-    0x004a CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           156
+    0x004b CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           158
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000005 (Page(4 KiB): MR=uart_phys @ 9000000)
          src_depth            64
          rights               3
          badge                0
-    0x004b CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           157
+    0x004c CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           159
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000024 (Page(4 KiB): MR=ELF:commandin-0 @ 6025e000)
@@ -825,24 +834,24 @@
          rights               2
          badge                0
       REPEAT: count=6
-    0x004c CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           163
+    0x004d CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           165
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000002a (Page(4 KiB): MR=ELF:commandin-1 @ 60264000)
          src_depth            64
          rights               3
          badge                0
-    0x004d CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           164
+    0x004e CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           166
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000003d (Page(4 KiB): MR=STACK:commandin #0)
          src_depth            64
          rights               3
          badge                0
-    0x004e CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           165
+    0x004f CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           167
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000002b (Page(4 KiB): MR=ELF:fault_mg-0 @ 60265000)
@@ -850,71 +859,71 @@
          rights               2
          badge                0
       REPEAT: count=6
-    0x004f CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           171
+    0x0050 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           173
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000031 (Page(4 KiB): MR=ELF:fault_mg-1 @ 6026b000)
          src_depth            64
          rights               3
          badge                0
-    0x0050 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           172
+    0x0051 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           174
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000003e (Page(4 KiB): MR=STACK:fault_mg #0)
          src_depth            64
          rights               3
          badge                0
-    0x0051 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           173
+    0x0052 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           175
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x8000000000000053 (Notification: PD=commandin)
          src_depth            64
          rights               15
          badge                1
-    0x0052 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           174
-         dest_depth           8
-         src_root (cap)       0x0000000000000063 (CNode: root)
-         src_obj (cap)        0x800000000000004f (EP: Monitor Fault)
-         src_depth            64
-         rights               15
-         badge                1
     0x0053 CNode                - Mint              - 0x0000000000000064 (CNode: system)
-         dest_index           175
-         dest_depth           8
-         src_root (cap)       0x0000000000000063 (CNode: root)
-         src_obj (cap)        0x800000000000004f (EP: Monitor Fault)
-         src_depth            64
-         rights               15
-         badge                2
-    0x0054 CNode                - Mint              - 0x0000000000000064 (CNode: system)
          dest_index           176
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000004f (EP: Monitor Fault)
          src_depth            64
          rights               15
-         badge                3
-    0x0055 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         badge                1
+    0x0054 CNode                - Mint              - 0x0000000000000064 (CNode: system)
          dest_index           177
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000004f (EP: Monitor Fault)
          src_depth            64
          rights               15
-         badge                4
-    0x0056 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         badge                2
+    0x0055 CNode                - Mint              - 0x0000000000000064 (CNode: system)
          dest_index           178
          dest_depth           8
          src_root (cap)       0x0000000000000063 (CNode: root)
          src_obj (cap)        0x800000000000004f (EP: Monitor Fault)
          src_depth            64
          rights               15
+         badge                3
+    0x0056 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           179
+         dest_depth           8
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x800000000000004f (EP: Monitor Fault)
+         src_depth            64
+         rights               15
+         badge                4
+    0x0057 CNode                - Mint              - 0x0000000000000064 (CNode: system)
+         dest_index           180
+         dest_depth           8
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x800000000000004f (EP: Monitor Fault)
+         src_depth            64
+         rights               15
          badge                5
-    0x0057 CNode                - Mint              - 0x8000000000000075 (CNode: PD=scheduler)
+    0x0058 CNode                - Mint              - 0x8000000000000076 (CNode: PD=scheduler)
          dest_index           1
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -922,7 +931,7 @@
          src_depth            64
          rights               15
          badge                0
-    0x0058 CNode                - Mint              - 0x8000000000000076 (CNode: PD=gpio)
+    0x0059 CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
          dest_index           1
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -930,7 +939,7 @@
          src_depth            64
          rights               15
          badge                0
-    0x0059 CNode                - Mint              - 0x8000000000000077 (CNode: PD=lightctl)
+    0x005a CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
          dest_index           1
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -938,7 +947,7 @@
          src_depth            64
          rights               15
          badge                0
-    0x005a CNode                - Mint              - 0x8000000000000078 (CNode: PD=commandin)
+    0x005b CNode                - Mint              - 0x8000000000000079 (CNode: PD=commandin)
          dest_index           1
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -946,7 +955,7 @@
          src_depth            64
          rights               15
          badge                0
-    0x005b CNode                - Mint              - 0x8000000000000079 (CNode: PD=fault_mg)
+    0x005c CNode                - Mint              - 0x800000000000007a (CNode: PD=fault_mg)
          dest_index           1
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -954,7 +963,7 @@
          src_depth            64
          rights               15
          badge                0
-    0x005c CNode                - Mint              - 0x8000000000000075 (CNode: PD=scheduler)
+    0x005d CNode                - Mint              - 0x8000000000000076 (CNode: PD=scheduler)
          dest_index           4
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -963,7 +972,7 @@
          rights               15
          badge                1
       REPEAT: count=5
-    0x005d CNode                - Mint              - 0x8000000000000075 (CNode: PD=scheduler)
+    0x005e CNode                - Mint              - 0x8000000000000076 (CNode: PD=scheduler)
          dest_index           3
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -972,15 +981,15 @@
          rights               15
          badge                0
       REPEAT: count=5
-    0x005e CNode                - Mint              - 0x8000000000000078 (CNode: PD=commandin)
+    0x005f CNode                - Mint              - 0x8000000000000079 (CNode: PD=commandin)
          dest_index           138
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
-         src_obj (cap)        0x800000000000007a (IRQ Handler: irq=33)
+         src_obj (cap)        0x800000000000007b (IRQ Handler: irq=33)
          src_depth            64
          rights               15
          badge                0
-    0x005f CNode                - Mint              - 0x8000000000000076 (CNode: PD=gpio)
+    0x0060 CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
          dest_index           11
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -988,7 +997,7 @@
          src_depth            64
          rights               15
          badge                4
-    0x0060 CNode                - Mint              - 0x8000000000000077 (CNode: PD=lightctl)
+    0x0061 CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
          dest_index           12
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -996,7 +1005,7 @@
          src_depth            64
          rights               15
          badge                2
-    0x0061 CNode                - Mint              - 0x8000000000000078 (CNode: PD=commandin)
+    0x0062 CNode                - Mint              - 0x8000000000000079 (CNode: PD=commandin)
          dest_index           13
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -1004,7 +1013,7 @@
          src_depth            64
          rights               15
          badge                16
-    0x0062 CNode                - Mint              - 0x8000000000000075 (CNode: PD=scheduler)
+    0x0063 CNode                - Mint              - 0x8000000000000076 (CNode: PD=scheduler)
          dest_index           14
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -1012,7 +1021,7 @@
          src_depth            64
          rights               15
          badge                8
-    0x0063 CNode                - Mint              - 0x8000000000000079 (CNode: PD=fault_mg)
+    0x0064 CNode                - Mint              - 0x800000000000007a (CNode: PD=fault_mg)
          dest_index           15
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -1020,7 +1029,7 @@
          src_depth            64
          rights               15
          badge                64
-    0x0064 CNode                - Mint              - 0x8000000000000077 (CNode: PD=lightctl)
+    0x0065 CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
          dest_index           16
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -1028,7 +1037,7 @@
          src_depth            64
          rights               15
          badge                32
-    0x0065 CNode                - Mint              - 0x8000000000000079 (CNode: PD=fault_mg)
+    0x0066 CNode                - Mint              - 0x800000000000007a (CNode: PD=fault_mg)
          dest_index           17
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -1036,7 +1045,7 @@
          src_depth            64
          rights               15
          badge                256
-    0x0066 CNode                - Mint              - 0x8000000000000076 (CNode: PD=gpio)
+    0x0067 CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
          dest_index           18
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -1044,7 +1053,7 @@
          src_depth            64
          rights               15
          badge                128
-    0x0067 CNode                - Mint              - 0x8000000000000075 (CNode: PD=scheduler)
+    0x0068 CNode                - Mint              - 0x8000000000000076 (CNode: PD=scheduler)
          dest_index           19
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -1052,7 +1061,7 @@
          src_depth            64
          rights               15
          badge                1024
-    0x0068 CNode                - Mint              - 0x8000000000000077 (CNode: PD=lightctl)
+    0x0069 CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
          dest_index           20
          dest_depth           9
          src_root (cap)       0x0000000000000063 (CNode: root)
@@ -1060,354 +1069,555 @@
          src_depth            64
          rights               15
          badge                512
-    0x0069 IRQ Handler          - SetNotification   - 0x800000000000007a (IRQ Handler: irq=33)
-         notification (cap)   0x80000000000000ad (Notification: PD=commandin (badge=0x1))
-    0x006a Page Table           - Map               - 0x800000000000005a (PageTable: PD=scheduler VADDR=0x0)
+    0x006a CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           30
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                1048576
+    0x006b CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           30
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                1048576
+    0x006c CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           31
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                2097152
+    0x006d CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           31
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                2097152
+    0x006e CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           32
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                4194304
+    0x006f CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           32
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                4194304
+    0x0070 CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           33
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                8388608
+    0x0071 CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           33
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                8388608
+    0x0072 CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           34
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                16777216
+    0x0073 CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           34
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                16777216
+    0x0074 CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           35
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                33554432
+    0x0075 CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           35
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                33554432
+    0x0076 CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           36
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                67108864
+    0x0077 CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           36
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                67108864
+    0x0078 CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           37
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                134217728
+    0x0079 CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           37
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                134217728
+    0x007a CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           38
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                268435456
+    0x007b CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           38
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                268435456
+    0x007c CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           39
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                536870912
+    0x007d CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           39
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                536870912
+    0x007e CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           40
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                1073741824
+    0x007f CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           40
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                1073741824
+    0x0080 CNode                - Mint              - 0x8000000000000078 (CNode: PD=lightctl)
+         dest_index           41
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000051 (Notification: PD=gpio)
+         src_depth            64
+         rights               15
+         badge                2147483648
+    0x0081 CNode                - Mint              - 0x8000000000000077 (CNode: PD=gpio)
+         dest_index           41
+         dest_depth           9
+         src_root (cap)       0x0000000000000063 (CNode: root)
+         src_obj (cap)        0x8000000000000052 (Notification: PD=lightctl)
+         src_depth            64
+         rights               15
+         badge                2147483648
+    0x0082 IRQ Handler          - SetNotification   - 0x800000000000007b (IRQ Handler: irq=33)
+         notification (cap)   0x80000000000000af (Notification: PD=commandin (badge=0x1))
+    0x0083 Page Table           - Map               - 0x800000000000005a (PageTable: PD=scheduler VADDR=0x0)
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0x0
          attr                 3
-    0x006b Page Table           - Map               - 0x800000000000005b (PageTable: PD=scheduler VADDR=0xffc0000000)
+    0x0084 Page Table           - Map               - 0x800000000000005b (PageTable: PD=scheduler VADDR=0xffc0000000)
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0xffc0000000
          attr                 3
-    0x006c Page Table           - Map               - 0x800000000000005c (PageTable: PD=gpio VADDR=0x0)
+    0x0085 Page Table           - Map               - 0x800000000000005c (PageTable: PD=gpio VADDR=0x0)
          vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
          vaddr                0x0
          attr                 3
-    0x006d Page Table           - Map               - 0x800000000000005d (PageTable: PD=gpio VADDR=0xffc0000000)
+    0x0086 Page Table           - Map               - 0x800000000000005d (PageTable: PD=gpio VADDR=0xffc0000000)
          vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
          vaddr                0xffc0000000
          attr                 3
-    0x006e Page Table           - Map               - 0x800000000000005e (PageTable: PD=lightctl VADDR=0x0)
+    0x0087 Page Table           - Map               - 0x800000000000005e (PageTable: PD=lightctl VADDR=0x0)
          vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
          vaddr                0x0
          attr                 3
-    0x006f Page Table           - Map               - 0x800000000000005f (PageTable: PD=lightctl VADDR=0xffc0000000)
+    0x0088 Page Table           - Map               - 0x800000000000005f (PageTable: PD=lightctl VADDR=0xffc0000000)
          vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
          vaddr                0xffc0000000
          attr                 3
-    0x0070 Page Table           - Map               - 0x8000000000000060 (PageTable: PD=commandin VADDR=0x0)
+    0x0089 Page Table           - Map               - 0x8000000000000060 (PageTable: PD=commandin VADDR=0x0)
          vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
          vaddr                0x0
          attr                 3
-    0x0071 Page Table           - Map               - 0x8000000000000061 (PageTable: PD=commandin VADDR=0xffc0000000)
+    0x008a Page Table           - Map               - 0x8000000000000061 (PageTable: PD=commandin VADDR=0xffc0000000)
          vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
          vaddr                0xffc0000000
          attr                 3
-    0x0072 Page Table           - Map               - 0x8000000000000062 (PageTable: PD=fault_mg VADDR=0x0)
+    0x008b Page Table           - Map               - 0x8000000000000062 (PageTable: PD=fault_mg VADDR=0x0)
          vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
          vaddr                0x0
          attr                 3
-    0x0073 Page Table           - Map               - 0x8000000000000063 (PageTable: PD=fault_mg VADDR=0xffc0000000)
+    0x008c Page Table           - Map               - 0x8000000000000063 (PageTable: PD=fault_mg VADDR=0xffc0000000)
          vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
          vaddr                0xffc0000000
          attr                 3
-    0x0074 Page Table           - Map               - 0x8000000000000064 (PageTable: PD=scheduler VADDR=0x200000)
+    0x008d Page Table           - Map               - 0x8000000000000064 (PageTable: PD=scheduler VADDR=0x200000)
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0x200000
          attr                 3
-    0x0075 Page Table           - Map               - 0x8000000000000065 (PageTable: PD=scheduler VADDR=0x4000000)
+    0x008e Page Table           - Map               - 0x8000000000000065 (PageTable: PD=scheduler VADDR=0x4000000)
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0x4000000
          attr                 3
-    0x0076 Page Table           - Map               - 0x8000000000000066 (PageTable: PD=scheduler VADDR=0x5000000)
+    0x008f Page Table           - Map               - 0x8000000000000066 (PageTable: PD=scheduler VADDR=0x5000000)
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0x5000000
          attr                 3
-    0x0077 Page Table           - Map               - 0x8000000000000067 (PageTable: PD=scheduler VADDR=0xffffe00000)
+    0x0090 Page Table           - Map               - 0x8000000000000067 (PageTable: PD=scheduler VADDR=0xffffe00000)
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0xffffe00000
          attr                 3
-    0x0078 Page Table           - Map               - 0x8000000000000068 (PageTable: PD=gpio VADDR=0x200000)
+    0x0091 Page Table           - Map               - 0x8000000000000068 (PageTable: PD=gpio VADDR=0x200000)
          vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
          vaddr                0x200000
          attr                 3
-    0x0079 Page Table           - Map               - 0x8000000000000069 (PageTable: PD=gpio VADDR=0x4000000)
+    0x0092 Page Table           - Map               - 0x8000000000000069 (PageTable: PD=gpio VADDR=0x4000000)
          vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
          vaddr                0x4000000
          attr                 3
-    0x007a Page Table           - Map               - 0x800000000000006a (PageTable: PD=gpio VADDR=0x5000000)
+    0x0093 Page Table           - Map               - 0x800000000000006a (PageTable: PD=gpio VADDR=0x5000000)
          vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
          vaddr                0x5000000
          attr                 3
-    0x007b Page Table           - Map               - 0x800000000000006b (PageTable: PD=gpio VADDR=0xffffe00000)
+    0x0094 Page Table           - Map               - 0x800000000000006b (PageTable: PD=gpio VADDR=0xffffe00000)
          vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
          vaddr                0xffffe00000
          attr                 3
-    0x007c Page Table           - Map               - 0x800000000000006c (PageTable: PD=lightctl VADDR=0x200000)
+    0x0095 Page Table           - Map               - 0x800000000000006c (PageTable: PD=lightctl VADDR=0x200000)
          vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
          vaddr                0x200000
          attr                 3
-    0x007d Page Table           - Map               - 0x800000000000006d (PageTable: PD=lightctl VADDR=0x5000000)
+    0x0096 Page Table           - Map               - 0x800000000000006d (PageTable: PD=lightctl VADDR=0x4000000)
+         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
+         vaddr                0x4000000
+         attr                 3
+    0x0097 Page Table           - Map               - 0x800000000000006e (PageTable: PD=lightctl VADDR=0x5000000)
          vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
          vaddr                0x5000000
          attr                 3
-    0x007e Page Table           - Map               - 0x800000000000006e (PageTable: PD=lightctl VADDR=0xffffe00000)
+    0x0098 Page Table           - Map               - 0x800000000000006f (PageTable: PD=lightctl VADDR=0xffffe00000)
          vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
          vaddr                0xffffe00000
          attr                 3
-    0x007f Page Table           - Map               - 0x800000000000006f (PageTable: PD=commandin VADDR=0x200000)
+    0x0099 Page Table           - Map               - 0x8000000000000070 (PageTable: PD=commandin VADDR=0x200000)
          vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
          vaddr                0x200000
          attr                 3
-    0x0080 Page Table           - Map               - 0x8000000000000070 (PageTable: PD=commandin VADDR=0x4000000)
+    0x009a Page Table           - Map               - 0x8000000000000071 (PageTable: PD=commandin VADDR=0x4000000)
          vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
          vaddr                0x4000000
          attr                 3
-    0x0081 Page Table           - Map               - 0x8000000000000071 (PageTable: PD=commandin VADDR=0x5000000)
+    0x009b Page Table           - Map               - 0x8000000000000072 (PageTable: PD=commandin VADDR=0x5000000)
          vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
          vaddr                0x5000000
          attr                 3
-    0x0082 Page Table           - Map               - 0x8000000000000072 (PageTable: PD=commandin VADDR=0xffffe00000)
+    0x009c Page Table           - Map               - 0x8000000000000073 (PageTable: PD=commandin VADDR=0xffffe00000)
          vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
          vaddr                0xffffe00000
          attr                 3
-    0x0083 Page Table           - Map               - 0x8000000000000073 (PageTable: PD=fault_mg VADDR=0x200000)
+    0x009d Page Table           - Map               - 0x8000000000000074 (PageTable: PD=fault_mg VADDR=0x200000)
          vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
          vaddr                0x200000
          attr                 3
-    0x0084 Page Table           - Map               - 0x8000000000000074 (PageTable: PD=fault_mg VADDR=0xffffe00000)
+    0x009e Page Table           - Map               - 0x8000000000000075 (PageTable: PD=fault_mg VADDR=0xffffe00000)
          vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
          vaddr                0xffffe00000
          attr                 3
-    0x0085 Page                 - Map               - 0x800000000000007b (Page(4 KiB): MR=shared_memory_for_scheduler #0 (derived))
+    0x009f Page                 - Map               - 0x800000000000007c (Page(4 KiB): MR=shared_memory_for_scheduler #0 (derived))
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0x4000000
          rights               3
          attr                 7
-    0x0086 Page                 - Map               - 0x800000000000007c (Page(4 KiB): MR=input_buffer_ci_lc #0 (derived))
+    0x00a0 Page                 - Map               - 0x800000000000007d (Page(4 KiB): MR=input_buffer_ci_lc #0 (derived))
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0x5000000
          rights               3
          attr                 7
-    0x0087 Page                 - Map               - 0x800000000000007d (Page(4 KiB): MR=ELF:scheduler-0 @ 60248000 (derived))
+    0x00a1 Page                 - Map               - 0x800000000000007e (Page(4 KiB): MR=ELF:scheduler-0 @ 60248000 (derived))
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
-         vaddr                0x200000
-         rights               2
-         attr                 3
-      REPEAT: count=6
-    0x0088 Page                 - Map               - 0x8000000000000083 (Page(4 KiB): MR=ELF:scheduler-1 @ 6024e000 (derived))
-         vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
-         vaddr                0x206000
-         rights               3
-         attr                 7
-    0x0089 Page                 - Map               - 0x8000000000000084 (Page(4 KiB): MR=STACK:scheduler #0 (derived))
-         vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
-         vaddr                0xfffffff000
-         rights               3
-         attr                 7
-    0x008a Page                 - Map               - 0x8000000000000085 (Page(4 KiB): MR=gpio_mmio @ 9010000 (derived))
-         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
-         vaddr                0x4000000
-         rights               3
-         attr                 6
-    0x008b Page                 - Map               - 0x8000000000000086 (Page(4 KiB): MR=cmd_buffer_gp_lc #0 (derived))
-         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
-         vaddr                0x5002000
-         rights               3
-         attr                 7
-    0x008c Page                 - Map               - 0x8000000000000087 (Page(4 KiB): MR=timer_phys @ 10011000 (derived))
-         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
-         vaddr                0x5000000
-         rights               3
-         attr                 6
-    0x008d Page                 - Map               - 0x8000000000000088 (Page(4 KiB): MR=ELF:gpio-0 @ 6024f000 (derived))
-         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
          vaddr                0x200000
          rights               2
          attr                 3
       REPEAT: count=7
-    0x008e Page                 - Map               - 0x800000000000008f (Page(4 KiB): MR=ELF:gpio-1 @ 60256000 (derived))
-         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
-         vaddr                0x207000
-         rights               3
-         attr                 7
-    0x008f Page                 - Map               - 0x8000000000000090 (Page(4 KiB): MR=STACK:gpio #0 (derived))
-         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
-         vaddr                0xfffffff000
-         rights               3
-         attr                 7
-    0x0090 Page                 - Map               - 0x8000000000000091 (Page(4 KiB): MR=cmd_buffer_gp_lc #0 (derived))
-         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
-         vaddr                0x5002000
-         rights               3
-         attr                 7
-    0x0091 Page                 - Map               - 0x8000000000000092 (Page(4 KiB): MR=input_buffer_ci_lc #0 (derived))
-         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
-         vaddr                0x5000000
-         rights               3
-         attr                 7
-    0x0092 Page                 - Map               - 0x8000000000000093 (Page(4 KiB): MR=ELF:lightctl-0 @ 60257000 (derived))
-         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
-         vaddr                0x200000
-         rights               2
-         attr                 3
-      REPEAT: count=6
-    0x0093 Page                 - Map               - 0x8000000000000099 (Page(4 KiB): MR=ELF:lightctl-1 @ 6025d000 (derived))
-         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
-         vaddr                0x206000
-         rights               3
-         attr                 7
-    0x0094 Page                 - Map               - 0x800000000000009a (Page(4 KiB): MR=STACK:lightctl #0 (derived))
-         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
-         vaddr                0xfffffff000
-         rights               3
-         attr                 7
-    0x0095 Page                 - Map               - 0x800000000000009b (Page(4 KiB): MR=input_buffer_ci_lc #0 (derived))
-         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
-         vaddr                0x5000000
-         rights               3
-         attr                 7
-    0x0096 Page                 - Map               - 0x800000000000009c (Page(4 KiB): MR=uart_phys @ 9000000 (derived))
-         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
-         vaddr                0x4000000
-         rights               3
-         attr                 6
-    0x0097 Page                 - Map               - 0x800000000000009d (Page(4 KiB): MR=ELF:commandin-0 @ 6025e000 (derived))
-         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
-         vaddr                0x200000
-         rights               2
-         attr                 3
-      REPEAT: count=6
-    0x0098 Page                 - Map               - 0x80000000000000a3 (Page(4 KiB): MR=ELF:commandin-1 @ 60264000 (derived))
-         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
-         vaddr                0x206000
-         rights               3
-         attr                 7
-    0x0099 Page                 - Map               - 0x80000000000000a4 (Page(4 KiB): MR=STACK:commandin #0 (derived))
-         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
-         vaddr                0xfffffff000
-         rights               3
-         attr                 7
-    0x009a Page                 - Map               - 0x80000000000000a5 (Page(4 KiB): MR=ELF:fault_mg-0 @ 60265000 (derived))
-         vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
-         vaddr                0x200000
-         rights               2
-         attr                 3
-      REPEAT: count=6
-    0x009b Page                 - Map               - 0x80000000000000ab (Page(4 KiB): MR=ELF:fault_mg-1 @ 6026b000 (derived))
-         vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
-         vaddr                0x206000
-         rights               3
-         attr                 7
-    0x009c Page                 - Map               - 0x80000000000000ac (Page(4 KiB): MR=STACK:fault_mg #0 (derived))
-         vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
-         vaddr                0xfffffff000
-         rights               3
-         attr                 7
-    0x009d Page                 - Map               - 0x8000000000000032 (Page(4 KiB): IPC Buffer PD=scheduler)
+    0x00a2 Page                 - Map               - 0x8000000000000085 (Page(4 KiB): MR=ELF:scheduler-1 @ 6024f000 (derived))
          vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0x207000
          rights               3
          attr                 7
-    0x009e Page                 - Map               - 0x8000000000000033 (Page(4 KiB): IPC Buffer PD=gpio)
+    0x00a3 Page                 - Map               - 0x8000000000000086 (Page(4 KiB): MR=STACK:scheduler #0 (derived))
+         vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
+         vaddr                0xfffffff000
+         rights               3
+         attr                 7
+    0x00a4 Page                 - Map               - 0x8000000000000087 (Page(4 KiB): MR=gpio_mmio @ 9010000 (derived))
          vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
+         vaddr                0x4000000
+         rights               3
+         attr                 6
+    0x00a5 Page                 - Map               - 0x8000000000000088 (Page(4 KiB): MR=cmd_buffer_gp_lc #0 (derived))
+         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
+         vaddr                0x5002000
+         rights               3
+         attr                 7
+    0x00a6 Page                 - Map               - 0x8000000000000089 (Page(4 KiB): MR=timer_phys @ 10011000 (derived))
+         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
+         vaddr                0x5000000
+         rights               3
+         attr                 6
+    0x00a7 Page                 - Map               - 0x800000000000008a (Page(4 KiB): MR=ELF:gpio-0 @ 60250000 (derived))
+         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
+         vaddr                0x200000
+         rights               2
+         attr                 3
+      REPEAT: count=6
+    0x00a8 Page                 - Map               - 0x8000000000000090 (Page(4 KiB): MR=ELF:gpio-1 @ 60256000 (derived))
+         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
+         vaddr                0x206000
+         rights               3
+         attr                 7
+    0x00a9 Page                 - Map               - 0x8000000000000091 (Page(4 KiB): MR=STACK:gpio #0 (derived))
+         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
+         vaddr                0xfffffff000
+         rights               3
+         attr                 7
+    0x00aa Page                 - Map               - 0x8000000000000092 (Page(4 KiB): MR=shared_memory_for_scheduler #0 (derived))
+         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
+         vaddr                0x4000000
+         rights               3
+         attr                 7
+    0x00ab Page                 - Map               - 0x8000000000000093 (Page(4 KiB): MR=cmd_buffer_gp_lc #0 (derived))
+         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
+         vaddr                0x5002000
+         rights               3
+         attr                 7
+    0x00ac Page                 - Map               - 0x8000000000000094 (Page(4 KiB): MR=input_buffer_ci_lc #0 (derived))
+         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
+         vaddr                0x5000000
+         rights               3
+         attr                 7
+    0x00ad Page                 - Map               - 0x8000000000000095 (Page(4 KiB): MR=ELF:lightctl-0 @ 60257000 (derived))
+         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
+         vaddr                0x200000
+         rights               2
+         attr                 3
+      REPEAT: count=6
+    0x00ae Page                 - Map               - 0x800000000000009b (Page(4 KiB): MR=ELF:lightctl-1 @ 6025d000 (derived))
+         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
+         vaddr                0x206000
+         rights               3
+         attr                 7
+    0x00af Page                 - Map               - 0x800000000000009c (Page(4 KiB): MR=STACK:lightctl #0 (derived))
+         vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
+         vaddr                0xfffffff000
+         rights               3
+         attr                 7
+    0x00b0 Page                 - Map               - 0x800000000000009d (Page(4 KiB): MR=input_buffer_ci_lc #0 (derived))
+         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
+         vaddr                0x5000000
+         rights               3
+         attr                 7
+    0x00b1 Page                 - Map               - 0x800000000000009e (Page(4 KiB): MR=uart_phys @ 9000000 (derived))
+         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
+         vaddr                0x4000000
+         rights               3
+         attr                 6
+    0x00b2 Page                 - Map               - 0x800000000000009f (Page(4 KiB): MR=ELF:commandin-0 @ 6025e000 (derived))
+         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
+         vaddr                0x200000
+         rights               2
+         attr                 3
+      REPEAT: count=6
+    0x00b3 Page                 - Map               - 0x80000000000000a5 (Page(4 KiB): MR=ELF:commandin-1 @ 60264000 (derived))
+         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
+         vaddr                0x206000
+         rights               3
+         attr                 7
+    0x00b4 Page                 - Map               - 0x80000000000000a6 (Page(4 KiB): MR=STACK:commandin #0 (derived))
+         vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
+         vaddr                0xfffffff000
+         rights               3
+         attr                 7
+    0x00b5 Page                 - Map               - 0x80000000000000a7 (Page(4 KiB): MR=ELF:fault_mg-0 @ 60265000 (derived))
+         vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
+         vaddr                0x200000
+         rights               2
+         attr                 3
+      REPEAT: count=6
+    0x00b6 Page                 - Map               - 0x80000000000000ad (Page(4 KiB): MR=ELF:fault_mg-1 @ 6026b000 (derived))
+         vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
+         vaddr                0x206000
+         rights               3
+         attr                 7
+    0x00b7 Page                 - Map               - 0x80000000000000ae (Page(4 KiB): MR=STACK:fault_mg #0 (derived))
+         vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
+         vaddr                0xfffffff000
+         rights               3
+         attr                 7
+    0x00b8 Page                 - Map               - 0x8000000000000032 (Page(4 KiB): IPC Buffer PD=scheduler)
+         vspace (cap)         0x8000000000000055 (VSpace: PD=scheduler)
          vaddr                0x208000
          rights               3
          attr                 7
-    0x009f Page                 - Map               - 0x8000000000000034 (Page(4 KiB): IPC Buffer PD=lightctl)
+    0x00b9 Page                 - Map               - 0x8000000000000033 (Page(4 KiB): IPC Buffer PD=gpio)
+         vspace (cap)         0x8000000000000056 (VSpace: PD=gpio)
+         vaddr                0x207000
+         rights               3
+         attr                 7
+    0x00ba Page                 - Map               - 0x8000000000000034 (Page(4 KiB): IPC Buffer PD=lightctl)
          vspace (cap)         0x8000000000000057 (VSpace: PD=lightctl)
          vaddr                0x207000
          rights               3
          attr                 7
-    0x00a0 Page                 - Map               - 0x8000000000000035 (Page(4 KiB): IPC Buffer PD=commandin)
+    0x00bb Page                 - Map               - 0x8000000000000035 (Page(4 KiB): IPC Buffer PD=commandin)
          vspace (cap)         0x8000000000000058 (VSpace: PD=commandin)
          vaddr                0x207000
          rights               3
          attr                 7
-    0x00a1 Page                 - Map               - 0x8000000000000036 (Page(4 KiB): IPC Buffer PD=fault_mg)
+    0x00bc Page                 - Map               - 0x8000000000000036 (Page(4 KiB): IPC Buffer PD=fault_mg)
          vspace (cap)         0x8000000000000059 (VSpace: PD=fault_mg)
          vaddr                0x207000
          rights               3
          attr                 7
-    0x00a2 SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
+    0x00bd SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
          schedcontext (cap)   0x8000000000000044 (SchedContext: PD=scheduler)
          budget               1000
          period               1000
          extra_refills        0
          badge                256
          flags                0
-    0x00a3 SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
+    0x00be SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
          schedcontext (cap)   0x8000000000000045 (SchedContext: PD=gpio)
          budget               1000
          period               1000
          extra_refills        0
          badge                257
          flags                0
-    0x00a4 SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
+    0x00bf SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
          schedcontext (cap)   0x8000000000000046 (SchedContext: PD=lightctl)
          budget               1000
          period               1000
          extra_refills        0
          badge                258
          flags                0
-    0x00a5 SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
+    0x00c0 SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
          schedcontext (cap)   0x8000000000000047 (SchedContext: PD=commandin)
          budget               1000
          period               1000
          extra_refills        0
          badge                259
          flags                0
-    0x00a6 SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
+    0x00c1 SchedControl         - ConfigureFlags    - 0x0000000000000012 (None)
          schedcontext (cap)   0x8000000000000048 (SchedContext: PD=fault_mg)
          budget               1000
          period               1000
          extra_refills        0
          badge                260
          flags                0
-    0x00a7 TCB                  - SetSchedParams    - 0x800000000000003f (TCB: PD=scheduler)
+    0x00c2 TCB                  - SetSchedParams    - 0x800000000000003f (TCB: PD=scheduler)
          authority (cap)      0x0000000000000001 (TCB: init)
          mcp                  253
          priority             253
          sched_context (cap)  0x8000000000000044 (SchedContext: PD=scheduler)
          fault_ep (cap)       0x800000000000004f (EP: Monitor Fault)
-    0x00a8 TCB                  - SetSchedParams    - 0x8000000000000040 (TCB: PD=gpio)
+    0x00c3 TCB                  - SetSchedParams    - 0x8000000000000040 (TCB: PD=gpio)
          authority (cap)      0x0000000000000001 (TCB: init)
          mcp                  252
          priority             252
          sched_context (cap)  0x8000000000000045 (SchedContext: PD=gpio)
          fault_ep (cap)       0x800000000000004f (EP: Monitor Fault)
-    0x00a9 TCB                  - SetSchedParams    - 0x8000000000000041 (TCB: PD=lightctl)
+    0x00c4 TCB                  - SetSchedParams    - 0x8000000000000041 (TCB: PD=lightctl)
          authority (cap)      0x0000000000000001 (TCB: init)
          mcp                  200
          priority             200
          sched_context (cap)  0x8000000000000046 (SchedContext: PD=lightctl)
          fault_ep (cap)       0x800000000000004f (EP: Monitor Fault)
-    0x00aa TCB                  - SetSchedParams    - 0x8000000000000042 (TCB: PD=commandin)
+    0x00c5 TCB                  - SetSchedParams    - 0x8000000000000042 (TCB: PD=commandin)
          authority (cap)      0x0000000000000001 (TCB: init)
          mcp                  250
          priority             250
          sched_context (cap)  0x8000000000000047 (SchedContext: PD=commandin)
          fault_ep (cap)       0x800000000000004f (EP: Monitor Fault)
-    0x00ab TCB                  - SetSchedParams    - 0x8000000000000043 (TCB: PD=fault_mg)
+    0x00c6 TCB                  - SetSchedParams    - 0x8000000000000043 (TCB: PD=fault_mg)
          authority (cap)      0x0000000000000001 (TCB: init)
          mcp                  210
          priority             210
          sched_context (cap)  0x8000000000000048 (SchedContext: PD=fault_mg)
          fault_ep (cap)       0x800000000000004f (EP: Monitor Fault)
-    0x00ac TCB                  - SetSpace          - 0x800000000000003f (TCB: PD=scheduler)
-         fault_ep (cap)       0x80000000000000ae (None)
-         cspace_root (cap)    0x8000000000000075 (CNode: PD=scheduler)
+    0x00c7 TCB                  - SetSpace          - 0x800000000000003f (TCB: PD=scheduler)
+         fault_ep (cap)       0x80000000000000b0 (None)
+         cspace_root (cap)    0x8000000000000076 (CNode: PD=scheduler)
          cspace_root_data     55
          vspace_root (cap)    0x8000000000000055 (VSpace: PD=scheduler)
          vspace_root_data     0
       REPEAT: count=5
-    0x00ad TCB                  - SetIPCBuffer      - 0x800000000000003f (TCB: PD=scheduler)
-         buffer               0x207000
-         buffer_frame (cap)   0x8000000000000032 (Page(4 KiB): IPC Buffer PD=scheduler)
-    0x00ae TCB                  - SetIPCBuffer      - 0x8000000000000040 (TCB: PD=gpio)
+    0x00c8 TCB                  - SetIPCBuffer      - 0x800000000000003f (TCB: PD=scheduler)
          buffer               0x208000
+         buffer_frame (cap)   0x8000000000000032 (Page(4 KiB): IPC Buffer PD=scheduler)
+    0x00c9 TCB                  - SetIPCBuffer      - 0x8000000000000040 (TCB: PD=gpio)
+         buffer               0x207000
          buffer_frame (cap)   0x8000000000000033 (Page(4 KiB): IPC Buffer PD=gpio)
-    0x00af TCB                  - SetIPCBuffer      - 0x8000000000000041 (TCB: PD=lightctl)
+    0x00ca TCB                  - SetIPCBuffer      - 0x8000000000000041 (TCB: PD=lightctl)
          buffer               0x207000
          buffer_frame (cap)   0x8000000000000034 (Page(4 KiB): IPC Buffer PD=lightctl)
-    0x00b0 TCB                  - SetIPCBuffer      - 0x8000000000000042 (TCB: PD=commandin)
+    0x00cb TCB                  - SetIPCBuffer      - 0x8000000000000042 (TCB: PD=commandin)
          buffer               0x207000
          buffer_frame (cap)   0x8000000000000035 (Page(4 KiB): IPC Buffer PD=commandin)
-    0x00b1 TCB                  - SetIPCBuffer      - 0x8000000000000043 (TCB: PD=fault_mg)
+    0x00cc TCB                  - SetIPCBuffer      - 0x8000000000000043 (TCB: PD=fault_mg)
          buffer               0x207000
          buffer_frame (cap)   0x8000000000000036 (Page(4 KiB): IPC Buffer PD=fault_mg)
-    0x00b2 TCB                  - WriteRegisters    - 0x800000000000003f (TCB: PD=scheduler)
+    0x00cd TCB                  - WriteRegisters    - 0x800000000000003f (TCB: PD=scheduler)
          resume               false
          arch_flags           0
          regs                 pc: 0x0000000000200000
@@ -1446,7 +1656,7 @@
                               x28: 0x0000000000000000
                               tpidr_el0: 0x0000000000000000
                               tpidrro_el0: 0x0000000000000000
-    0x00b3 TCB                  - WriteRegisters    - 0x8000000000000040 (TCB: PD=gpio)
+    0x00ce TCB                  - WriteRegisters    - 0x8000000000000040 (TCB: PD=gpio)
          resume               false
          arch_flags           0
          regs                 pc: 0x0000000000200000
@@ -1485,7 +1695,7 @@
                               x28: 0x0000000000000000
                               tpidr_el0: 0x0000000000000000
                               tpidrro_el0: 0x0000000000000000
-    0x00b4 TCB                  - WriteRegisters    - 0x8000000000000041 (TCB: PD=lightctl)
+    0x00cf TCB                  - WriteRegisters    - 0x8000000000000041 (TCB: PD=lightctl)
          resume               false
          arch_flags           0
          regs                 pc: 0x0000000000200000
@@ -1524,7 +1734,7 @@
                               x28: 0x0000000000000000
                               tpidr_el0: 0x0000000000000000
                               tpidrro_el0: 0x0000000000000000
-    0x00b5 TCB                  - WriteRegisters    - 0x8000000000000042 (TCB: PD=commandin)
+    0x00d0 TCB                  - WriteRegisters    - 0x8000000000000042 (TCB: PD=commandin)
          resume               false
          arch_flags           0
          regs                 pc: 0x0000000000200000
@@ -1563,7 +1773,7 @@
                               x28: 0x0000000000000000
                               tpidr_el0: 0x0000000000000000
                               tpidrro_el0: 0x0000000000000000
-    0x00b6 TCB                  - WriteRegisters    - 0x8000000000000043 (TCB: PD=fault_mg)
+    0x00d1 TCB                  - WriteRegisters    - 0x8000000000000043 (TCB: PD=fault_mg)
          resume               false
          arch_flags           0
          regs                 pc: 0x0000000000200000
@@ -1602,9 +1812,9 @@
                               x28: 0x0000000000000000
                               tpidr_el0: 0x0000000000000000
                               tpidrro_el0: 0x0000000000000000
-    0x00b7 TCB                  - BindNotification  - 0x800000000000003f (TCB: PD=scheduler)
+    0x00d2 TCB                  - BindNotification  - 0x800000000000003f (TCB: PD=scheduler)
          notification (cap)   0x8000000000000050 (Notification: PD=scheduler)
       REPEAT: count=5
-    0x00b8 TCB                  - Resume            - 0x800000000000003f (TCB: PD=scheduler)
+    0x00d3 TCB                  - Resume            - 0x800000000000003f (TCB: PD=scheduler)
 
       REPEAT: count=5

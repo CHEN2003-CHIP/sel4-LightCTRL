@@ -40,6 +40,12 @@
 #define RIGHT_TURN_ON 'Y'
 #define RIGHT_TURN_OFF 'y'
 
+// 刹车灯和示廓灯按键定义
+#define POSITION_ON 'P'
+#define POSITION_OFF 'p'
+#define BRAKE_ON 'B'
+#define BRAKE_OFF 'b'
+
 
 
 
@@ -209,6 +215,21 @@ void send_command(int ch)
             break;
         case RIGHT_TURN_OFF:
             operationNum=0x30;
+            break;
+        // ==========================================
+        // 示廓灯和刹车灯的 case
+        // ==========================================
+        case POSITION_ON:
+            operationNum=0x41; // 自定义：0x4开头代表示廓灯
+            break;
+        case POSITION_OFF:
+            operationNum=0x40;
+            break;
+        case BRAKE_ON:
+            operationNum=0x51; // 自定义：0x5开头代表刹车灯
+            break;
+        case BRAKE_OFF:
+            operationNum=0x50;
             break;
         default:
             break;
