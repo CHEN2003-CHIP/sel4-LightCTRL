@@ -145,6 +145,7 @@ make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1
 - `make test-policy`：执行宿主机上的规则层单元测试
 - `make test-runtime`：执行宿主机上的运行时安全单元测试
 - `make test-fault`：执行宿主机上的故障模式单元测试
+- `make test-fault-transport`：执行宿主机上的 fault mode 共享字节传播测试
 - `make help`：显示最终 target 列表和常用覆盖参数
 
 推荐使用：
@@ -240,16 +241,20 @@ make test-integration-fault
 make test-policy
 make test-runtime
 make test-fault
+make test-fault-transport
 make smoke
 make test-integration-fault
 ```
 
 仓库还包含 GitHub Actions CI 配置：
 
-- 默认运行 `make test-policy`、`make test-fault`
-- 当 CI 环境提供 `MICROKIT_SDK_URL` 时，额外尝试运行 `make smoke`
+- 默认运行 host validation：`make test-policy`、`make test-fault`、`make test-fault-transport`
+- 当 CI 环境提供 `MICROKIT_SDK_URL` 时，额外运行 QEMU validation：`make smoke`
+- 当 CI 环境未提供 `MICROKIT_SDK_URL` 时，会在日志和 job summary 中明确说明 QEMU validation 被跳过的原因
 
 如果本地或 CI 缺少 Microkit SDK / QEMU，则宿主机单元测试仍可单独执行。
+
+更具体的贡献与验证说明见 [CONTRIBUTING.md](/home/chen/microkit_tutorial/lightCtlTest/CONTRIBUTING.md)。
 
 ## 使用方式
 

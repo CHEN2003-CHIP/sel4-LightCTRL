@@ -5,30 +5,73 @@ on:
   pull_request:
 
 jobs:
+  validation-plan:
+    runs-on: ubuntu-latest
+    outputs:
+      has_sdk: ${{ steps.check.outputs.has_sdk }}
+    steps:
+      - name: Decide validation layers
+        id: check
+        env:
+          MICROKIT_SDK_URL: ${{ vars.MICROKIT_SDK_URL }}
+        run: |
+          if [ -n "$MICROKIT_SDK_URL" ]; then
+            echo "has_sdk=true" >> "$GITHUB_OUTPUT"
+            echo "QEMU validation enabled: MICROKIT_SDK_URL is configured." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "has_sdk=false" >> "$GITHUB_OUTPUT"
+            echo "QEMU validation skipped: MICROKIT_SDK_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "Host validation is always enabled." >> "$GITHUB_STEP_SUMMARY"
+
   host-tests:
     runs-on: ubuntu-latest
+    needs: validation-plan
     steps:
       - uses: actions/checkout@v4
       - name: Install host build tools
         run: sudo apt-get update && sudo apt-get install -y build-essential
-      - name: Run host-side policy tests
+      - name: Run host validation: policy
         run: make test-policy
-      - name: Run host-side fault tests
+      - name: Run host validation: fault mode
         run: make test-fault
+      - name: Run host validation: fault transport
+        run: make test-fault-transport
+      - name: Publish host validation summary
+        run: |
+          echo "Host validation completed:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- make test-policy" >> "$GITHUB_STEP_SUMMARY"
+          echo "- make test-fault" >> "$GITHUB_STEP_SUMMARY"
+          echo "- make test-fault-transport" >> "$GITHUB_STEP_SUMMARY"
 
   smoke:
     runs-on: ubuntu-latest
-    if: ${{ vars.MICROKIT_SDK_URL != '' }}
+    needs: validation-plan
+    if: ${{ needs.validation-plan.outputs.has_sdk == 'true' }}
     env:
       MICROKIT_SDK_URL: ${{ vars.MICROKIT_SDK_URL }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install QEMU and cross toolchain
+      - name: Install QEMU validation dependencies
         run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu qemu-system-arm curl xz-utils
       - name: Fetch Microkit SDK
         run: |
           curl -L "$MICROKIT_SDK_URL" -o /tmp/microkit-sdk.tar.gz
           mkdir -p ..
           tar -xf /tmp/microkit-sdk.tar.gz -C ..
-      - name: Run smoke test
+      - name: Run QEMU validation: smoke
         run: make smoke
+      - name: Publish QEMU validation summary
+        run: |
+          echo "QEMU validation completed:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- make smoke" >> "$GITHUB_STEP_SUMMARY"
+
+  smoke-skipped:
+    runs-on: ubuntu-latest
+    needs: validation-plan
+    if: ${{ needs.validation-plan.outputs.has_sdk != 'true' }}
+    steps:
+      - name: Explain why QEMU validation is skipped
+        run: |
+          echo "QEMU validation skipped in this CI run." >> "$GITHUB_STEP_SUMMARY"
+          echo "Reason: MICROKIT_SDK_URL is not configured." >> "$GITHUB_STEP_SUMMARY"

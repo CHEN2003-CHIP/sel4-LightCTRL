@@ -298,7 +298,7 @@ void init(void) {
 
 void notified(microkit_channel ch) {
     if (ch == CH_FAULT_LINK) {
-        g_fault_mode_cache = (fault_mode_t)(*(volatile uint8_t *)fault_mode_shared_vaddr);
+        g_fault_mode_cache = light_fault_mode_transport_load((volatile const uint8_t *)fault_mode_shared_vaddr);
         LOG_INFO("LIGHTCTL_FAULT_MODE_UPDATE mode=%s", light_fault_mode_name(g_fault_mode_cache));
         sync_outputs();
         return;

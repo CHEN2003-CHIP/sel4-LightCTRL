@@ -82,6 +82,38 @@ light_fault_event_t light_fault_event_create(uint8_t error_code, fault_mode_t cu
     return event;
 }
 
+uint8_t light_fault_mode_transport_encode(fault_mode_t mode) {
+    switch (mode) {
+        case LIGHT_FAULT_MODE_NORMAL:
+        case LIGHT_FAULT_MODE_WARN:
+        case LIGHT_FAULT_MODE_DEGRADED:
+        case LIGHT_FAULT_MODE_SAFE_MODE:
+            return (uint8_t)mode;
+        default:
+            return (uint8_t)LIGHT_FAULT_MODE_NORMAL;
+    }
+}
+
+fault_mode_t light_fault_mode_transport_decode(uint8_t raw_mode) {
+    switch (raw_mode) {
+        case LIGHT_FAULT_MODE_NORMAL:
+        case LIGHT_FAULT_MODE_WARN:
+        case LIGHT_FAULT_MODE_DEGRADED:
+        case LIGHT_FAULT_MODE_SAFE_MODE:
+            return (fault_mode_t)raw_mode;
+        default:
+            return LIGHT_FAULT_MODE_NORMAL;
+    }
+}
+
+void light_fault_mode_transport_store(volatile uint8_t *slot, fault_mode_t mode) {
+    *slot = light_fault_mode_transport_encode(mode);
+}
+
+fault_mode_t light_fault_mode_transport_load(volatile const uint8_t *slot) {
+    return light_fault_mode_transport_decode(*slot);
+}
+
 const char *light_fault_mode_name(fault_mode_t mode) {
     switch (mode) {
         case LIGHT_FAULT_MODE_NORMAL:

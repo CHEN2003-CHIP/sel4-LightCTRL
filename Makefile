@@ -87,7 +87,7 @@ CONFIG_STAMP := $(BUILD_DIR)/.microkit_config_$(MICROKIT_CONFIG)
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-.PHONY: all build run clean debug release smoke test-policy test-runtime test-fault test-integration-fault help $(LEGACY_TARGETS) legacy
+.PHONY: all build run clean debug release smoke test-policy test-runtime test-fault test-fault-transport test-integration-fault help $(LEGACY_TARGETS) legacy
 
 all: build
 
@@ -117,6 +117,10 @@ test-runtime: | directories
 test-fault: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode.c light_fault_mode.c light_output_policy.c light_runtime_guard.c -o build/test_light_fault_mode
 	./build/test_light_fault_mode
+
+test-fault-transport: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode_transport.c light_fault_mode.c -o build/test_light_fault_mode_transport
+	./build/test_light_fault_mode_transport
 
 directories:
 	@mkdir -p $(BUILD_DIR)
@@ -159,6 +163,7 @@ help:
 	@echo "  test-policy Run host-side policy unit tests"
 	@echo "  test-runtime Run host-side runtime guard unit tests"
 	@echo "  test-fault Run host-side fault mode tests"
+	@echo "  test-fault-transport Run host-side fault mode transport tests"
 	@echo "  test-integration-fault Run QEMU fault-injection integration test (test hooks enabled)"
 	@echo "  help     Show this help message"
 	@echo ""

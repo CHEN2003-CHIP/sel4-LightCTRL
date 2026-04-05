@@ -53,6 +53,7 @@ Recommended targets:
 - `make debug`
 - `make release`
 - `make smoke`
+- `make test-fault-transport`
 - `make help`
 
 Recommended full build:
@@ -100,9 +101,25 @@ make run
 
 This runs the image at `build/loader.img`.
 
-## Smoke Test
+## Validation
 
-The repository now includes a minimal automated smoke test:
+Host-side validation:
+
+```bash
+make test-policy
+make test-runtime
+make test-fault
+make test-fault-transport
+```
+
+Full QEMU validation:
+
+```bash
+make smoke
+make test-integration-fault
+```
+
+The repository includes a minimal automated smoke test:
 
 ```bash
 make smoke
@@ -110,11 +127,25 @@ make smoke
 
 It builds the full image, boots QEMU, waits for the five core module init logs, sends `L`, `H`, and `B`, and checks the expected input/scheduler/execution log chain.
 
+The repository also includes a QEMU fault-injection integration test:
+
+```bash
+make test-integration-fault
+```
+
+That path proves `fault event -> faultmg transition -> lightctl immediate sync -> gpio output switch` without waiting for another normal scheduler update.
+
 ## Debug / Release Notes
 
 - `make debug` and `make release` switch `MICROKIT_CONFIG` between the Microkit SDK `debug` and `release` board directories.
-- In this repository, `make release` does not otherwise change the local compiler flags, so `CFLAGS` still include `-g`.
+- In this repository, `make release` also uses `-O2 -DNDEBUG -g0` so it is closer to a production-style build.
 - With Microkit SDK 2.0.1 on `qemu_virt_aarch64`, both `debug` and `release` directories are present, so `make release` is supported.
+
+## CI
+
+- CI always runs host validation.
+- CI runs QEMU validation only when `MICROKIT_SDK_URL` is configured.
+- If the SDK URL is not configured, CI explicitly logs that QEMU validation was skipped and why.
 
 ## UART Commands
 

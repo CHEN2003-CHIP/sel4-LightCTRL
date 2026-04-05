@@ -183,7 +183,7 @@ void notified(microkit_channel ch) {
 
     switch (ch) {
         case FAULT_NOTIFY_CHANNEL:
-            g_fault_mode_cache = (fault_mode_t)(*(volatile uint8_t *)fault_mode_shared_vaddr);
+            g_fault_mode_cache = light_fault_mode_transport_load((volatile const uint8_t *)fault_mode_shared_vaddr);
             LOG_INFO("GPIO_FAULT_MODE_UPDATE mode=%s", light_fault_mode_name(g_fault_mode_cache));
             return;
         case LIGHT_CH_GPIO_TURN_LEFT_ON:

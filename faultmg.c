@@ -23,7 +23,7 @@ uint32_t total_error_count = 0;
 static light_fault_state_t g_fault_state;
 
 static void publish_fault_mode(fault_mode_t mode) {
-    *(volatile uint8_t *)fault_mode_shared_vaddr = (uint8_t)mode;
+    light_fault_mode_transport_store((volatile uint8_t *)fault_mode_shared_vaddr, mode);
     microkit_notify(FAULTMG_LIGHTCTL);
     microkit_notify(FAULTMG_GPIO);
 }
