@@ -1,0 +1,8 @@
+build/
+build-test-hooks/
+*.img
+*.elf
+*.o
+*.log
+*.fifo
+report.txt

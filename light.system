@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<system>
+    <!--
+  灯光控制流程拓扑（seL4/Microkit 调度场景）
+  ┌───────────────────┐        1. 发原始信号通知        ┌───────────────────┐
+  │ 模拟信号输入模块   │───────────────────────────────→│ 灯光调度器模块     │
+  └───────────────────┘                                └───────────────────┘
+        │ (出错) X. 发错误通知                                 │
+        │                                                    │ 2. 仲裁通过后发允许通知
+        ▼                                                    ▼
+  ┌───────────────────┐        X. 发错误通知         ┌───────────────────┐
+  │ 错误处理模块       │←───────────────────────────│ 灯光控制模块       │
+  └───────────────────┘                             └───────────────────┘
+        │ (出错) X. 发错误通知                                 │
+        │                                                    │ 3. 校验解析后发操作通知
+        ▼                                                    ▼
+        │                                          ┌───────────────────┐
+        └──────────────────────────────────────────│ GPIO模块          │
+                                                   └───────────────────┘
+    -->
+
+    <!-- Define your system here -->
+    <memory_region name="gpio_mmio" size="0x1000" phys_addr="0x9010000" />
+    <memory_region name="cmd_buffer_gp_lc" size="0x1000" />
+    <memory_region name="input_buffer_ci_lc" size="0x1000" />
+    <!-- <memory_region name="output_buffer" size="0x1000" /> --> 
+    <memory_region name="uart_phys" size="0x1000" phys_addr="0x9000000" />
+    <memory_region name="timer_phys" size="0x1000" phys_addr="0x10011000" />
+    <memory_region name="shared_memory_for_scheduler" size="0x1000"/>
+    <memory_region name="fault_mode_shared" size="0x1000"/>
+
+    <!-- SHEDULER模块 用来调度-->
+    <protection_domain name="scheduler" priority="253" >
+        <map mr="shared_memory_for_scheduler" vaddr="0x4000000" perms="rw" cached="true"
+            setvar_vaddr="shared_memory_base_vaddr" />
+        <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
+        <program_image path="scheduler.elf"/>
+        <!-- <irq irq="28" id="10" /> -->
+    </protection_domain>
+
+    <!-- GPIO模块 操作底层硬件-->
+    <protection_domain name="gpio" priority="252" >
+        <map mr="gpio_mmio" vaddr="0x4000000" perms="rw" cached="false"
+            setvar_vaddr="gpio_base_vaddr" />
+        <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
+        <map mr="fault_mode_shared" vaddr="0x5003000" perms="rw" setvar_vaddr="fault_mode_shared_vaddr"/>
+        <!-- <map mr="output_buffer" vaddr="0x5000000" perms="rw" setvar_vaddr="output_buffer"/> --> 
+        <map mr="timer_phys" vaddr="0x5000000" perms="rw" cached="false"
+            setvar_vaddr="timer_base_vaddr" />
+        <program_image path="gpio.elf"/>
+        <!-- <irq irq="28" id="10" /> -->
+    </protection_domain>
+
+    <!-- LIGHTCTL模块 转发指令，接收成功信号-->
+    <protection_domain name="lightctl" priority="200">
+        <map mr="shared_memory_for_scheduler" vaddr="0x4000000" perms="rw" cached="true"
+            setvar_vaddr="shared_memory_base_vaddr" />
+        <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
+        <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
+        <map mr="fault_mode_shared" vaddr="0x5003000" perms="rw" setvar_vaddr="fault_mode_shared_vaddr"/>
+        <program_image path="lightctl.elf"/>     
+    </protection_domain>
+
+    <!-- COMMANDIN模块 解析指令，校验（模拟指令输入）-->
+    <protection_domain name="commandin" priority="250">
+        <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
+        <map mr="uart_phys" vaddr="0x4000000" perms="rw" cached="false"
+            setvar_vaddr="uart_base_vaddr" />
+        <program_image path="commandin.elf"/>
+        <!-- UART中断配置 -->
+        <irq irq="33" id="0" />
+    </protection_domain>
+
+    <!-- FAULTMG模块 处理异常-->
+    <protection_domain name="fault_mg" priority="210">
+        <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="test_input_buffer"/>
+        <map mr="fault_mode_shared" vaddr="0x5003000" perms="rw" setvar_vaddr="fault_mode_shared_vaddr"/>
+        <program_image path="faultmg.elf"/>  
+    </protection_domain>
+
+    <!-- GPIO-LIGHTCTL -->
+    <channel>
+        <end pd="gpio" id="1" />
+        <end pd="lightctl" id="2" />
+    </channel>
+
+    <!-- COMMANDIN-LIGHTCTL -->
+    <channel>
+        <end pd="commandin" id="3" />
+        <end pd="scheduler" id="4" />
+    </channel>
+
+    <!-- FAULTMG-LIGHTCTL -->
+    <channel>
+        <end pd="fault_mg" id="5"/>
+        <end pd="lightctl" id="6"/>
+    </channel>
+
+    <!-- FAULTMG-GPIO -->
+    <channel>
+        <end pd="fault_mg" id="7"/>
+        <end pd="gpio" id="8"/>
+    </channel>
+
+    <!-- Scheduler notify lightctl -->
+    <channel>
+        <end pd="scheduler" id="9"/>
+        <end pd="lightctl" id="10"/>
+    </channel>
+
+    <!-- Test-only fault injection path: commandin -> fault_mg -->
+    <channel>
+        <end pd="commandin" id="11"/>
+        <end pd="fault_mg" id="12"/>
+    </channel>
+
+    <!-- 为了区别各个通信功能，lightctl和gpio用多个channel来沟通 -->
+    <!-- // 通道ID：灯光控制→GPIO模块（硬件操作指令）
+        #define CH_GPIO_TURN_LEFT_ON        20
+        #define CH_GPIO_TURN_LEFT_OFF       21
+        #define CH_GPIO_TURN_RIGHT_ON       22
+        #define CH_GPIO_TURN_RIGHT_OFF      23
+        #define CH_GPIO_BRAKE_ON            24
+        #define CH_GPIO_BRAKE_OFF           25
+        #define CH_GPIO_LOW_BEAM_ON         26
+        #define CH_GPIO_LOW_BEAM_OFF        27
+        #define CH_GPIO_HIGH_BEAM_ON        28
+        #define CH_GPIO_HIGH_BEAM_OFF       29
+        #define CH_GPIO_POSITION_ON         30
+        #define CH_GPIO_POSITION_OFF        31 -->
+    <channel>
+        <end pd="lightctl" id="20"/>
+        <end pd="gpio" id="20"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="21"/>
+        <end pd="gpio" id="21"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="22"/>
+        <end pd="gpio" id="22"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="23"/>
+        <end pd="gpio" id="23"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="24"/>
+        <end pd="gpio" id="24"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="25"/>
+        <end pd="gpio" id="25"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="26"/>
+        <end pd="gpio" id="26"/>
+    </channel>
+    <channel>
+        <end pd="lightctl" id="27"/>
+        <end pd="gpio" id="27"/>
+    </channel>
+
+    <channel>
+        <end pd="lightctl" id="28"/>
+        <end pd="gpio" id="28"/>
+    </channel>
+    <channel>
+        <end pd="lightctl" id="29"/>
+        <end pd="gpio" id="29"/>
+    </channel>
+    <channel>
+        <end pd="lightctl" id="30"/>
+        <end pd="gpio" id="30"/>
+    </channel>
+    <channel>
+        <end pd="lightctl" id="31"/>
+        <end pd="gpio" id="31"/>
+    </channel>
+
+</system>
