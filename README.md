@@ -12,7 +12,7 @@
 - `gpio` 直接访问 GPIO 和定时器映射，执行实际引脚电平控制。
 - `faultmg` 接收错误上报，记录和聚合当前实现中的故障信息。
 
-当前 `Makefile` 中提供了 `part1` 到 `part5` 的渐进式构建目标，其中 `part5` 对应当前主线的完整组合。
+当前 `Makefile` 已整理为项目级构建入口，同时保留 `part1` 到 `part5` 作为 legacy 兼容目标，其中 `part5` 对应当前主线的完整组合。
 
 ## 仓库结构
 
@@ -125,44 +125,58 @@ faultmg   -> lightctl
 如果目录关系不同，也可以在命令中指定：
 
 ```bash
-make MICROKIT_SDK=/path/to/microkit-sdk-2.0.1 part5
+make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1
 ```
 
 ### 2. 选择构建目标
 
-`Makefile` 提供以下分阶段目标：
+推荐使用新的项目级入口：
 
-- `make part1`：仅构建 `gpio.elf`
-- `make part2`：加入 `lightctl.elf`
-- `make part3`：加入 `commandin.elf`
-- `make part4`：加入 `faultmg.elf`
-- `make part5`：加入 `scheduler.elf`，对应当前完整演示链路
+- `make build`：构建当前完整镜像，默认等价于 legacy `part5`
+- `make run`：沿用当前 `qemu_virt_aarch64` 的 QEMU 启动流程
+- `make clean`：清理当前已知构建产物
+- `make debug`：以 `MICROKIT_CONFIG=debug` 构建完整镜像
+- `make release`：以 `MICROKIT_CONFIG=release` 构建完整镜像
+- `make help`：显示最终 target 列表和常用覆盖参数
 
 推荐使用：
 
 ```bash
-make part5
+make build
 ```
 
 构建时会使用：
 
 - `BOARD := qemu_virt_aarch64`
-- `MICROKIT_CONFIG := debug`
+- 默认 `MICROKIT_CONFIG := debug`
 - 构建输出目录：`build/`
+- 默认镜像：`build/loader.img`
+- 报告文件：`build/report.txt`
 
-### 3. 构建产物
+### 3. Legacy 分阶段目标
+
+教程阶段目标仍保留，但已标注为 legacy 兼容别名：
+
+- `make part1`：执行完整构建，并导出 `build/demo_part_one.img`
+- `make part2`：执行完整构建，并导出 `build/demo_part_two.img`
+- `make part3`：执行完整构建，并导出 `build/demo_part_three.img`
+- `make part4`：执行完整构建，并导出 `build/demo_part_four.img`
+- `make part5`：等价于 `make build`
+- `make legacy`：顺序构建全部 legacy 阶段镜像
+
+说明：
+
+- 当前仓库的 `light.system` 需要完整系统镜像，因此 `part1` 到 `part4` 作为兼容入口统一复用完整构建结果，再按旧命名导出镜像文件。
+- 主线镜像生成流程保持不变，`make build` 和 `make run` 仍以 `build/loader.img` 为入口。
+
+### 4. 构建产物
 
 根据当前 `Makefile`，主要产物包括：
 
 - 各保护域 ELF：`build/*.elf`
 - 镜像输出：`build/loader.img`
+- legacy 阶段镜像：`build/demo_part_one.img` 到 `build/demo_part_five.img`
 - Microkit 报告：`build/report.txt`
-
-虽然 `part1` 到 `part5` 对应了分阶段镜像文件名变量，但 `microkit` 工具当前统一通过 `-o $(IMAGE_FILE)` 输出到：
-
-```text
-build/loader.img
-```
 
 ## 运行步骤
 
@@ -172,13 +186,13 @@ build/loader.img
 make run
 ```
 
-`run` 目标会加载：
+`run` 目标会继续加载 `build/loader.img`，并以 `qemu-system-aarch64` 的 `virt` 机器模型运行，CPU 设为 `cortex-a53`，串口输出通过 `mon:stdio` 暴露到当前终端。
 
-```text
-build/loader.img
-```
+## Debug / Release 说明
 
-并以 `qemu-system-aarch64` 的 `virt` 机器模型运行，CPU 设为 `cortex-a53`，串口输出通过 `mon:stdio` 暴露到当前终端。
+- `debug` 和 `release` 通过切换 `MICROKIT_CONFIG`，选择 Microkit SDK 中 `qemu_virt_aarch64/debug` 或 `qemu_virt_aarch64/release` 目录下的板级输入。
+- 在当前仓库中，`release` 不会额外修改项目自己的编译选项，`CFLAGS` 仍保留 `-g`。因此它是 “Microkit release 配置构建入口”，不是单独设计过的强优化/去符号发布配置。
+- 本地 Microkit SDK 2.0.1 已包含 `debug` 和 `release` 两套目录，因此 `make release` 当前可用。
 
 ## 使用方式
 

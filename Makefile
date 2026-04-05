@@ -27,6 +27,7 @@ endif
 BOARD := qemu_virt_aarch64
 MICROKIT_CONFIG := debug
 BUILD_DIR := build
+SYSTEM_DESCRIPTION := light.system
 
 CPU := cortex-a53
 
@@ -46,11 +47,12 @@ SCHEDULER_OBJS := $(PRINTF_OBJS) scheduler.o
 BOARD_DIR := $(MICROKIT_SDK)/board/$(BOARD)/$(MICROKIT_CONFIG)
 
 IMAGES_PART_1 := gpio.elf
-IMAGES_PART_2 := gpio.elf lightctl.elf 
+IMAGES_PART_2 := gpio.elf lightctl.elf
 IMAGES_PART_3 := gpio.elf lightctl.elf commandin.elf
 IMAGES_PART_4 := gpio.elf lightctl.elf commandin.elf faultmg.elf
 IMAGES_PART_5 := gpio.elf lightctl.elf commandin.elf faultmg.elf scheduler.elf
 IMAGES_BUILD := $(IMAGES_PART_5)
+LEGACY_TARGETS := part1 part2 part3 part4 part5
 #IMAGES_PART_4 := serial_server.elf client.elf wordle_server.elf vmm.elf
 # Note that these warnings being disabled is to avoid compilation errors while in the middle of completing each exercise part
 CFLAGS := -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -Wall -Wno-array-bounds -Wno-unused-variable -Wno-unused-function -Werror -I$(BOARD_DIR)/include -Ivmm/src/util -Iinclude -DBOARD_$(BOARD)
@@ -66,17 +68,18 @@ IMAGE_FILE_PART_5 = $(BUILD_DIR)/demo_part_five.img
 IMAGE_FILE = $(BUILD_DIR)/loader.img
 REPORT_FILE = $(BUILD_DIR)/report.txt
 BUILD_ELFS := $(addprefix $(BUILD_DIR)/, $(IMAGES_BUILD))
+CONFIG_STAMP := $(BUILD_DIR)/.microkit_config_$(MICROKIT_CONFIG)
 
 # VMM defines
 # KERNEL_IMAGE = vmm/images/linux
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-.PHONY: all build run clean debug release help part1 part2 part3 part4 part5 legacy
+.PHONY: all build run clean debug release help $(LEGACY_TARGETS) legacy
 
 all: build
 
-build: directories $(BUILD_ELFS) $(IMAGE_FILE)
+build: $(IMAGE_FILE)
 
 debug:
 	$(MAKE) build MICROKIT_CONFIG=debug
@@ -85,9 +88,12 @@ release:
 	$(MAKE) build MICROKIT_CONFIG=release
 
 directories:
-	$(info $(shell mkdir -p $(BUILD_DIR)))
+	@mkdir -p $(BUILD_DIR)
 
-run: $(IMAGE_FILE)
+$(CONFIG_STAMP): | directories
+	@touch $@
+
+run: build
 	qemu-system-aarch64 -machine virt,virtualization=on \
 		-cpu $(CPU) \
 		-rtc base=localtime \
@@ -104,6 +110,7 @@ clean:
 	$(RM) $(BUILD_DIR)/*.elf
 	$(RM) $(IMAGE_FILE)
 	$(RM) $(REPORT_FILE)
+	$(RM) $(BUILD_DIR)/.microkit_config_*
 	$(RM) $(BUILD_DIR)/demo_part_one.img
 	$(RM) $(BUILD_DIR)/demo_part_two.img
 	$(RM) $(BUILD_DIR)/demo_part_three.img
@@ -119,27 +126,39 @@ help:
 	@echo "  release  Build the full image with MICROKIT_CONFIG=release"
 	@echo "  help     Show this help message"
 	@echo ""
-	@echo "Compatibility targets:"
+	@echo "Legacy compatibility targets:"
 	@echo "  all      Alias of build"
-	@echo "  part1    Legacy staged build target"
-	@echo "  part2    Legacy staged build target"
-	@echo "  part3    Legacy staged build target"
-	@echo "  part4    Legacy staged build target"
+	@echo "  part1    Legacy compatibility alias, emits demo_part_one.img"
+	@echo "  part2    Legacy compatibility alias, emits demo_part_two.img"
+	@echo "  part3    Legacy compatibility alias, emits demo_part_three.img"
+	@echo "  part4    Legacy compatibility alias, emits demo_part_four.img"
 	@echo "  part5    Legacy staged build target, equivalent to build"
+	@echo "  legacy   Build all legacy staged images"
 	@echo ""
 	@echo "Common overrides:"
 	@echo "  make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1"
 	@echo "  make release MICROKIT_SDK=/path/to/microkit-sdk-2.0.1"
+	@echo ""
+	@echo "Notes:"
+	@echo "  release selects the Microkit SDK release configuration."
+	@echo "  Compiler flags remain otherwise unchanged in this project Makefile."
 
-# Legacy staged targets retained for compatibility.
-part1: directories $(BUILD_DIR)/gpio.elf $(IMAGE_FILE_PART_1)
-part2: directories $(BUILD_DIR)/lightctl.elf $(IMAGE_FILE_PART_2)
-part3: directories $(BUILD_DIR)/commandin.elf $(IMAGE_FILE_PART_3)
-part4: directories $(BUILD_DIR)/faultmg.elf $(IMAGE_FILE_PART_4)
+legacy: part1 part2 part3 part4 part5
+
+part1: $(IMAGE_FILE_PART_1)
+part2: $(IMAGE_FILE_PART_2)
+part3: $(IMAGE_FILE_PART_3)
+part4: $(IMAGE_FILE_PART_4)
 part5: build
 # part4: directories $(BUILD_DIR)/vmm.elf $(IMAGE_FILE_PART_4)
 
-$(BUILD_DIR)/%.o: %.c Makefile
+$(BUILD_DIR)/%.o: %.c Makefile $(CONFIG_STAMP)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/printf.o: include/printf.c Makefile $(CONFIG_STAMP)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/util.o: vmm/src/util/util.c Makefile $(CONFIG_STAMP)
 	$(CC) -c $(CFLAGS) $< -o $@
 
 # $(BUILD_DIR)/%.o: vmm/src/%.c Makefile
@@ -158,38 +177,41 @@ $(BUILD_DIR)/%.o: %.c Makefile
 # 					-DVM_INITRD_IMAGE_PATH=\"$(INITRD_IMAGE)\" \
 # 					$< -o $@
 
-$(BUILD_DIR)/gpio.elf: $(addprefix $(BUILD_DIR)/, $(GPIO_OBJS))
-	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+$(BUILD_DIR)/gpio.elf: $(addprefix $(BUILD_DIR)/, $(GPIO_OBJS)) $(CONFIG_STAMP)
+	$(LD) $(LDFLAGS) $(filter %.o,$^) $(LIBS) -o $@
 
-$(BUILD_DIR)/lightctl.elf: $(addprefix $(BUILD_DIR)/, $(LIGHTCTL_OBJS))
-	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+$(BUILD_DIR)/lightctl.elf: $(addprefix $(BUILD_DIR)/, $(LIGHTCTL_OBJS)) $(CONFIG_STAMP)
+	$(LD) $(LDFLAGS) $(filter %.o,$^) $(LIBS) -o $@
 
-$(BUILD_DIR)/commandin.elf: $(addprefix $(BUILD_DIR)/, $(COMMANDIN_OBJS))
-	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+$(BUILD_DIR)/commandin.elf: $(addprefix $(BUILD_DIR)/, $(COMMANDIN_OBJS)) $(CONFIG_STAMP)
+	$(LD) $(LDFLAGS) $(filter %.o,$^) $(LIBS) -o $@
 
-$(BUILD_DIR)/faultmg.elf: $(addprefix $(BUILD_DIR)/, $(FAULT_MG_OBJS))
-	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+$(BUILD_DIR)/faultmg.elf: $(addprefix $(BUILD_DIR)/, $(FAULT_MG_OBJS)) $(CONFIG_STAMP)
+	$(LD) $(LDFLAGS) $(filter %.o,$^) $(LIBS) -o $@
 
-$(BUILD_DIR)/scheduler.elf: $(addprefix $(BUILD_DIR)/, $(SCHEDULER_OBJS))
-	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
+$(BUILD_DIR)/scheduler.elf: $(addprefix $(BUILD_DIR)/, $(SCHEDULER_OBJS)) $(CONFIG_STAMP)
+	$(LD) $(LDFLAGS) $(filter %.o,$^) $(LIBS) -o $@
 
 # $(BUILD_DIR)/vmm.elf: $(addprefix $(BUILD_DIR)/, $(VMM_OBJS))
 # 	$(LD) $(LDFLAGS) $^ $(LIBS) -o $@
 
-$(IMAGE_FILE_PART_1): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_1)) light.system
-	$(MICROKIT_TOOL) light.system --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
+$(IMAGE_FILE): $(BUILD_ELFS) $(SYSTEM_DESCRIPTION) $(CONFIG_STAMP) | directories
+	$(MICROKIT_TOOL) $(SYSTEM_DESCRIPTION) --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $@ -r $(REPORT_FILE)
 
-$(IMAGE_FILE_PART_2): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_2)) light.system
-	$(MICROKIT_TOOL) light.system --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
+$(IMAGE_FILE_PART_1): $(IMAGE_FILE)
+	cp $(IMAGE_FILE) $@
 
-$(IMAGE_FILE_PART_3): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_3)) light.system
-	$(MICROKIT_TOOL) light.system --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
+$(IMAGE_FILE_PART_2): $(IMAGE_FILE)
+	cp $(IMAGE_FILE) $@
 
-$(IMAGE_FILE_PART_4): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_4)) light.system
-	$(MICROKIT_TOOL) light.system --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
+$(IMAGE_FILE_PART_3): $(IMAGE_FILE)
+	cp $(IMAGE_FILE) $@
 
-$(IMAGE_FILE_PART_5): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_5)) light.system
-	$(MICROKIT_TOOL) light.system --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)
+$(IMAGE_FILE_PART_4): $(IMAGE_FILE)
+	cp $(IMAGE_FILE) $@
+
+$(IMAGE_FILE_PART_5): $(IMAGE_FILE)
+	cp $(IMAGE_FILE) $@
 
 # $(IMAGE_FILE_PART_4): $(addprefix $(BUILD_DIR)/, $(IMAGES_PART_4)) wordle.system
 # 	$(MICROKIT_TOOL) wordle.system --search-path $(BUILD_DIR) --board $(BOARD) --config $(MICROKIT_CONFIG) -o $(IMAGE_FILE) -r $(REPORT_FILE)

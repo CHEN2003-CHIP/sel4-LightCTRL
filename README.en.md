@@ -43,31 +43,50 @@ If your SDK is elsewhere, override it on the command line.
 
 ## Build
 
-Available staged targets:
+The `Makefile` now exposes project-level entry points while keeping the tutorial-stage targets as legacy compatibility aliases.
+
+Recommended targets:
+
+- `make build`
+- `make run`
+- `make clean`
+- `make debug`
+- `make release`
+- `make help`
+
+Recommended full build:
+
+```bash
+make build
+```
+
+Or with an explicit SDK path:
+
+```bash
+make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1
+```
+
+Legacy staged targets are still available:
 
 - `make part1`
 - `make part2`
 - `make part3`
 - `make part4`
 - `make part5`
+- `make legacy`
 
-`part5` is the recommended full build target for the current repository state:
+Legacy behavior notes:
 
-```bash
-make part5
-```
-
-Or with an explicit SDK path:
-
-```bash
-make MICROKIT_SDK=/path/to/microkit-sdk-2.0.1 part5
-```
+- the current `light.system` describes the full system, so `part1` to `part4` are now compatibility aliases that reuse the full build and emit the old `demo_part_*.img` filenames
+- `part5` remains equivalent to `make build`
+- `make run` still uses `build/loader.img`
 
 Important current build settings from `Makefile`:
 
 - `BOARD := qemu_virt_aarch64`
-- `MICROKIT_CONFIG := debug`
+- default `MICROKIT_CONFIG := debug`
 - output image: `build/loader.img`
+- legacy stage images: `build/demo_part_one.img` to `build/demo_part_five.img`
 - report file: `build/report.txt`
 
 ## Run
@@ -79,6 +98,12 @@ make run
 ```
 
 This runs the image at `build/loader.img`.
+
+## Debug / Release Notes
+
+- `make debug` and `make release` switch `MICROKIT_CONFIG` between the Microkit SDK `debug` and `release` board directories.
+- In this repository, `make release` does not otherwise change the local compiler flags, so `CFLAGS` still include `-g`.
+- With Microkit SDK 2.0.1 on `qemu_virt_aarch64`, both `debug` and `release` directories are present, so `make release` is supported.
 
 ## UART Commands
 
