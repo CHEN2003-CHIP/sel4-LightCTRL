@@ -20,6 +20,20 @@ light_runtime_guard_result_t light_runtime_guard_check_action(uint32_t action_ch
     result.report_fault = false;
     result.error_code = 0;
 
+    if (context.fault_mode == LIGHT_FAULT_MODE_SAFE_MODE) {
+        if (action_channel == LIGHT_CH_GPIO_HIGH_BEAM_ON
+            || action_channel == LIGHT_CH_GPIO_TURN_LEFT_ON
+            || action_channel == LIGHT_CH_GPIO_TURN_RIGHT_ON) {
+            return deny_with_error(LIGHT_ERR_HW_STATE_ERR);
+        }
+    }
+
+    if (context.fault_mode == LIGHT_FAULT_MODE_DEGRADED) {
+        if (action_channel == LIGHT_CH_GPIO_HIGH_BEAM_ON) {
+            return deny_with_error(LIGHT_ERR_MODE_CONFLICT);
+        }
+    }
+
     if ((action_channel == LIGHT_CH_GPIO_TURN_LEFT_ON || action_channel == LIGHT_CH_GPIO_TURN_RIGHT_ON)
         && context.vehicle_speed > 120U) {
         return deny_with_error(LIGHT_ERR_SPEED_LIMIT);

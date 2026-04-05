@@ -4,12 +4,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "light_fault_mode.h"
+
 typedef struct {
     uint16_t vehicle_speed;
     uint8_t last_turn_state;
     uint8_t last_beam_state;
     uint8_t last_brake_state;
     uint8_t last_position_state;
+    fault_mode_t fault_mode;
 } light_runtime_guard_context_t;
 
 typedef struct {

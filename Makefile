@@ -41,9 +41,10 @@ PRINTF_OBJS := printf.o util.o
 GPIO_OBJS := $(PRINTF_OBJS) gpio.o
 POLICY_OBJS := light_policy.o
 RUNTIME_GUARD_OBJS := light_runtime_guard.o
-LIGHTCTL_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) $(RUNTIME_GUARD_OBJS) lightctl.o
+FAULT_MODE_OBJS := light_fault_mode.o
+LIGHTCTL_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) $(RUNTIME_GUARD_OBJS) $(FAULT_MODE_OBJS) lightctl.o
 COMMANDIN_OBJS := $(PRINTF_OBJS) commandin.o
-FAULT_MG_OBJS := $(PRINTF_OBJS) faultmg.o
+FAULT_MG_OBJS := $(PRINTF_OBJS) $(FAULT_MODE_OBJS) faultmg.o
 SCHEDULER_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) scheduler.o
 #VMM_OBJS := $(PRINTF_OBJS) vmm.o psci.o smc.o fault.o vgic.o global_data.o vgic_v2.o
 
@@ -78,7 +79,7 @@ CONFIG_STAMP := $(BUILD_DIR)/.microkit_config_$(MICROKIT_CONFIG)
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-.PHONY: all build run clean debug release smoke test-policy test-runtime help $(LEGACY_TARGETS) legacy
+.PHONY: all build run clean debug release smoke test-policy test-runtime test-fault help $(LEGACY_TARGETS) legacy
 
 all: build
 
@@ -100,6 +101,10 @@ test-policy: | directories
 test-runtime: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_runtime_guard.c light_runtime_guard.c -o build/test_light_runtime_guard
 	./build/test_light_runtime_guard
+
+test-fault: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode.c light_fault_mode.c light_runtime_guard.c -o build/test_light_fault_mode
+	./build/test_light_fault_mode
 
 directories:
 	@mkdir -p $(BUILD_DIR)
@@ -141,6 +146,7 @@ help:
 	@echo "  smoke    Run the minimal automated smoke test"
 	@echo "  test-policy Run host-side policy unit tests"
 	@echo "  test-runtime Run host-side runtime guard unit tests"
+	@echo "  test-fault Run host-side fault mode tests"
 	@echo "  help     Show this help message"
 	@echo ""
 	@echo "Legacy compatibility targets:"

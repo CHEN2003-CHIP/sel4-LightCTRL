@@ -139,6 +139,7 @@ make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1
 - `make release`：以 `MICROKIT_CONFIG=release` 构建完整镜像
 - `make smoke`：执行最小自动化 smoke test
 - `make test-policy`：执行宿主机上的规则层单元测试
+- `make test-fault`：执行宿主机上的故障模式单元测试
 - `make help`：显示最终 target 列表和常用覆盖参数
 
 推荐使用：
