@@ -30,6 +30,7 @@ BUILD_DIR := build
 SYSTEM_DESCRIPTION := light.system
 
 CPU := cortex-a53
+HOST_CC ?= cc
 
 CC := $(TOOLCHAIN)-gcc
 LD := $(TOOLCHAIN)-ld
@@ -38,10 +39,11 @@ MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
 
 PRINTF_OBJS := printf.o util.o
 GPIO_OBJS := $(PRINTF_OBJS) gpio.o
-LIGHTCTL_OBJS := $(PRINTF_OBJS) lightctl.o
+POLICY_OBJS := light_policy.o
+LIGHTCTL_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) lightctl.o
 COMMANDIN_OBJS := $(PRINTF_OBJS) commandin.o
 FAULT_MG_OBJS := $(PRINTF_OBJS) faultmg.o
-SCHEDULER_OBJS := $(PRINTF_OBJS) scheduler.o
+SCHEDULER_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) scheduler.o
 #VMM_OBJS := $(PRINTF_OBJS) vmm.o psci.o smc.o fault.o vgic.o global_data.o vgic_v2.o
 
 BOARD_DIR := $(MICROKIT_SDK)/board/$(BOARD)/$(MICROKIT_CONFIG)
@@ -90,6 +92,10 @@ release:
 smoke: build
 	./scripts/smoke_test.sh
 
+test-policy: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_policy.c light_policy.c -o build/test_light_policy
+	./build/test_light_policy
+
 directories:
 	@mkdir -p $(BUILD_DIR)
 
@@ -128,6 +134,7 @@ help:
 	@echo "  debug    Build the full image with MICROKIT_CONFIG=debug"
 	@echo "  release  Build the full image with MICROKIT_CONFIG=release"
 	@echo "  smoke    Run the minimal automated smoke test"
+	@echo "  test-policy Run host-side policy unit tests"
 	@echo "  help     Show this help message"
 	@echo ""
 	@echo "Legacy compatibility targets:"

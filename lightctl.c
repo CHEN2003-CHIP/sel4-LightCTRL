@@ -12,6 +12,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "logger.h"
+#include "light_policy.h"
 #include "light_protocol.h"
 
 // 閫氶亾ID锛氳皟搴﹀櫒鈫掔伅鍏夋帶鍒讹紙鍏佽鎵ц閫氱煡锛?
@@ -118,6 +119,8 @@ void init(void) {
 }
 
 void notified(microkit_channel ch) {
+    light_target_state_t target;
+
     if (ch != CH_SCHEDULER_ALLOW) {
         LOG_INFO("LightCtrl: Unknown channel, ignore\n");
         microkit_mr_set(0, LIGHT_ERR_INVALID_CMD);
@@ -125,22 +128,24 @@ void notified(microkit_channel ch) {
         return;
     }
 
+    target = light_policy_target_from_flags(g_shmem->allow_flags);
+
     LOG_INFO("--- LightCtrl State Check ---");
     LOG_INFO("LIGHTCTL_SYNC allow_flags=0x%02x brake=%d left=%d right=%d low=%d high=%d pos=%d",
              (unsigned int)g_shmem->allow_flags,
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_LEFT),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_RIGHT),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_LOW_BEAM),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_HIGH_BEAM),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_POSITION));
+             target.brake,
+             target.turn_left,
+             target.turn_right,
+             target.low_beam,
+             target.high_beam,
+             target.position);
     LOG_INFO("Shmem: brake=%d, left=%d, right=%d, low=%d, high=%d, pos=%d",
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_LEFT),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_RIGHT),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_LOW_BEAM),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_HIGH_BEAM),
-             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_POSITION));
+             target.brake,
+             target.turn_left,
+             target.turn_right,
+             target.low_beam,
+             target.high_beam,
+             target.position);
     LOG_INFO("Internal: last_brake=%d, last_turn=%d, last_beam=%d",
              g_last_brake_state,
              g_last_turn_state,
@@ -148,7 +153,7 @@ void notified(microkit_channel ch) {
 
     LOG_INFO("GET SCHEDULER SIGANL");
 
-    if (LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE)) {
+    if (target.brake) {
         if (g_last_brake_state != 1) {
             if (check_mode_conflict(LIGHT_CH_GPIO_BRAKE_ON)) {
                 trigger_gpio_operation(LIGHT_CH_GPIO_BRAKE_ON);
@@ -162,7 +167,7 @@ void notified(microkit_channel ch) {
         }
     }
 
-    if (LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_LEFT)) {
+    if (target.turn_left) {
         if (g_last_turn_state != 1) {
             if (check_speed_limit(LIGHT_CH_GPIO_TURN_LEFT_ON)
                 && check_mode_conflict(LIGHT_CH_GPIO_TURN_LEFT_ON)) {
@@ -170,7 +175,7 @@ void notified(microkit_channel ch) {
                 g_last_turn_state = 1;
             }
         }
-    } else if (LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_RIGHT)) {
+    } else if (target.turn_right) {
         if (g_last_turn_state != 2) {
             if (check_speed_limit(LIGHT_CH_GPIO_TURN_RIGHT_ON)
                 && check_mode_conflict(LIGHT_CH_GPIO_TURN_RIGHT_ON)) {
@@ -188,14 +193,14 @@ void notified(microkit_channel ch) {
         }
     }
 
-    if (LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_LOW_BEAM)) {
+    if (target.low_beam) {
         if (g_last_beam_state != 1) {
             if (check_mode_conflict(LIGHT_CH_GPIO_LOW_BEAM_ON)) {
                 trigger_gpio_operation(LIGHT_CH_GPIO_LOW_BEAM_ON);
                 g_last_beam_state = 1;
             }
         }
-    } else if (LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_HIGH_BEAM)) {
+    } else if (target.high_beam) {
         if (g_last_beam_state != 2) {
             if (check_speed_limit(LIGHT_CH_GPIO_HIGH_BEAM_ON)
                 && check_mode_conflict(LIGHT_CH_GPIO_HIGH_BEAM_ON)) {
@@ -213,7 +218,7 @@ void notified(microkit_channel ch) {
         }
     }
 
-    if (LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_POSITION)) {
+    if (target.position) {
         if (g_last_position_state != 1) {
             trigger_gpio_operation(LIGHT_CH_GPIO_POSITION_ON);
             g_last_position_state = 1;
