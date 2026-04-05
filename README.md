@@ -139,6 +139,7 @@ make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1
 - `make release`：以 `MICROKIT_CONFIG=release` 构建完整镜像
 - `make smoke`：执行最小自动化 smoke test
 - `make test-policy`：执行宿主机上的规则层单元测试
+- `make test-runtime`：执行宿主机上的运行时安全单元测试
 - `make test-fault`：执行宿主机上的故障模式单元测试
 - `make help`：显示最终 target 列表和常用覆盖参数
 
@@ -204,7 +205,7 @@ make smoke
 - 构建当前完整镜像
 - 启动 QEMU 并等待 5 个核心模块初始化日志
 - 发送 `L`、`H`、`B`
-- 检查输入、调度和执行摘要日志是否命中
+- 检查输入、调度和执行摘要日志是否命中，其中 `H` 需要命中 `high_beam_on` 的执行日志
 
 ## Debug / Release 说明
 
@@ -227,11 +228,19 @@ make smoke
 
 这些字符首先由 `commandin` 编码，再经 `scheduler` 和 `lightctl` 逐级处理，最终由 `gpio` 执行对应硬件操作。
 
+## 状态机与故障模式
+
+- 规则层 `light_policy` 负责把命令转换为允许标志和目标灯态。
+- 对于光束目标态，当前实现中 `HIGH_BEAM_ON` 在规则层会覆盖低光目标态，因此 `H` 会向 `lightctl` 和 `gpio` 传递 `high_beam_on`。
+- 运行时安全层 `light_runtime_guard` 负责基于速度、执行历史和当前 fault mode 拒绝高风险动作。
+- fault mode 的所有权当前收敛在 `faultmg`：`faultmg` 负责根据错误码和计数推导 `NORMAL / WARN / DEGRADED / SAFE_MODE`，再通过已有的 `fault_mg -> lightctl` channel 把当前 mode 通知给 `lightctl`。
+- `lightctl` 不再维护独立的 fault mode 状态机，只缓存 faultmg 下发的当前 mode，并据此约束高风险动作。
+
 ## 已知限制与说明
 
 - 本仓库当前以源码与构建定义为准；现有注释中存在乱码和历史表述，README 已尽量按照实际实现重新归纳，但不对源码注释本身做修复。
 - 当前环境下若缺少 `make`、交叉编译器、Microkit SDK 或 QEMU，则无法直接完成构建与运行。
-- `faultmg` 当前主要用于错误计数和日志输出，并未实现完整的故障恢复流程。
+- 当前 fault mode 只支持升级，不支持自动恢复到更低模式。
 - `gpio.c` 中包含部分定时器/扩展预留代码，但这些内容并未改变主线构建说明。
 - 仓库内已存在 `build/` 产物；本次文档清理不会删除或重建这些文件。
 

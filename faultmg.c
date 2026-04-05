@@ -38,7 +38,7 @@ static void print_error_details(uint8_t err_code) {
 }
 
 void init(void) {
-    g_fault_state = light_fault_state_init();
+    light_fault_state_reset(&g_fault_state);
     LOG_INFO("FAULT_INIT module=faultmg status=ready");
     LOG_INFO("FAULT_MGMT: initialized\n");
 }
@@ -63,6 +63,8 @@ void notified(microkit_channel channel) {
                      light_fault_mode_name(decision.previous_mode),
                      light_fault_mode_name(decision.current_mode));
         }
+        microkit_mr_set(0, g_fault_state.mode);
+        microkit_notify(FAULTMG_LIGHTCTL);
         LOG_INFO("FAULT_MGMT: fault notification received (total: %d)", total_error_count);
 
         print_error_details(error_code);

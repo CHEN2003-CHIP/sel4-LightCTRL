@@ -23,15 +23,19 @@ static fault_mode_t derive_mode(const fault_counters_t *counters) {
 light_fault_state_t light_fault_state_init(void) {
     light_fault_state_t state;
 
-    state.mode = LIGHT_FAULT_MODE_NORMAL;
-    state.counters.total_errors = 0;
-    state.counters.speed_limit_errors = 0;
-    state.counters.mode_conflict_errors = 0;
-    state.counters.invalid_cmd_errors = 0;
-    state.counters.hw_state_errors = 0;
-    state.counters.consecutive_mode_conflicts = 0;
+    light_fault_state_reset(&state);
 
     return state;
+}
+
+void light_fault_state_reset(light_fault_state_t *state) {
+    state->mode = LIGHT_FAULT_MODE_NORMAL;
+    state->counters.total_errors = 0;
+    state->counters.speed_limit_errors = 0;
+    state->counters.mode_conflict_errors = 0;
+    state->counters.invalid_cmd_errors = 0;
+    state->counters.hw_state_errors = 0;
+    state->counters.consecutive_mode_conflicts = 0;
 }
 
 fault_decision_t light_fault_mode_record_error(light_fault_state_t *state, uint8_t error_code) {

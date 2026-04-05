@@ -79,7 +79,7 @@ static void test_brake_priority_blocks_turn_requests(void) {
     expect_true(!target.turn_left, "left turn target should remain off");
 }
 
-static void test_high_beam_flag_does_not_override_low_beam_target(void) {
+static void test_high_beam_flag_overrides_low_beam_target(void) {
     light_policy_state_t state = light_policy_init_state();
     light_policy_result_t low_on = light_policy_apply_command(state, LIGHT_CMD_LOW_BEAM_ON);
     light_policy_result_t high_on;
@@ -90,8 +90,8 @@ static void test_high_beam_flag_does_not_override_low_beam_target(void) {
     target = light_policy_target_from_flags(high_on.next_allow_flags);
 
     expect_true(high_on.accepted, "high beam should be accepted after low beam");
-    expect_true(target.low_beam, "low beam target should keep priority");
-    expect_true(!target.high_beam, "high beam target should stay off until runtime path changes");
+    expect_true(!target.low_beam, "low beam target should yield once high beam is requested");
+    expect_true(target.high_beam, "high beam target should become active");
 }
 
 int main(void) {
@@ -100,7 +100,7 @@ int main(void) {
     test_high_beam_requires_low_beam();
     test_turn_signals_are_mutually_exclusive();
     test_brake_priority_blocks_turn_requests();
-    test_high_beam_flag_does_not_override_low_beam_target();
+    test_high_beam_flag_overrides_low_beam_target();
 
     printf("light_policy tests passed\n");
     return 0;

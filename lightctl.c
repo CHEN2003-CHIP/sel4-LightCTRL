@@ -20,7 +20,7 @@
 // 閫氶亾ID锛氳皟搴﹀櫒鈫掔伅鍏夋帶鍒讹紙鍏佽鎵ц閫氱煡锛?
 #define CH_SCHEDULER_ALLOW 10
 // 閫氶亾ID锛氱伅鍏夋帶鍒垛啋閿欒澶勭悊妯″潡
-#define CH_ERROR_REPORT 6
+#define CH_FAULT_LINK 6
 
 uintptr_t cmd_buffer;
 uintptr_t input_buffer;
@@ -32,7 +32,7 @@ static uint8_t g_last_turn_state = 0;
 static uint8_t g_last_beam_state = 0;
 static uint8_t g_last_brake_state = 0;
 static uint8_t g_last_position_state = 1;
-static light_fault_state_t g_fault_state;
+static fault_mode_t g_fault_mode = LIGHT_FAULT_MODE_NORMAL;
 
 static const char *gpio_action_name(microkit_channel ch) {
     switch (ch) {
@@ -73,24 +73,9 @@ static light_runtime_guard_context_t runtime_guard_context(void) {
     context.last_beam_state = g_last_beam_state;
     context.last_brake_state = g_last_brake_state;
     context.last_position_state = g_last_position_state;
-    context.fault_mode = g_fault_state.mode;
+    context.fault_mode = g_fault_mode;
 
     return context;
-}
-
-static void record_runtime_fault(uint8_t error_code) {
-    fault_decision_t decision = light_fault_mode_record_error(&g_fault_state, error_code);
-
-    LOG_INFO("LIGHTCTL_FAULT code=0x%02x mode=%s total=%u",
-             error_code,
-             light_fault_mode_name(g_fault_state.mode),
-             g_fault_state.counters.total_errors);
-
-    if (decision.mode_changed) {
-        LOG_WARN("LIGHTCTL_FAULT_MODE %s -> %s",
-                 light_fault_mode_name(decision.previous_mode),
-                 light_fault_mode_name(decision.current_mode));
-    }
 }
 
 static void log_guard_rejection(microkit_channel ch, uint8_t error_code) {
@@ -123,9 +108,8 @@ static bool guard_allows_action(microkit_channel ch) {
     if (!result.allowed) {
         log_guard_rejection(ch, result.error_code);
         if (result.report_fault) {
-            record_runtime_fault(result.error_code);
             microkit_mr_set(0, result.error_code);
-            microkit_notify(CH_ERROR_REPORT);
+            microkit_notify(CH_FAULT_LINK);
         }
     }
 
@@ -149,7 +133,7 @@ void init(void) {
     g_last_beam_state = 0;
     g_last_brake_state = 0;
     g_last_position_state = 1;
-    g_fault_state = light_fault_state_init();
+    g_fault_mode = LIGHT_FAULT_MODE_NORMAL;
 
     LOG_INFO("LIGHTCTL_INIT module=lightctl status=ready");
     LOG_INFO("Light control module initialized\n");
@@ -158,11 +142,16 @@ void init(void) {
 void notified(microkit_channel ch) {
     light_target_state_t target;
 
+    if (ch == CH_FAULT_LINK) {
+        g_fault_mode = (fault_mode_t)microkit_mr_get(0);
+        LOG_INFO("LIGHTCTL_FAULT_MODE_UPDATE mode=%s", light_fault_mode_name(g_fault_mode));
+        return;
+    }
+
     if (ch != CH_SCHEDULER_ALLOW) {
         LOG_INFO("LightCtrl: Unknown channel, ignore\n");
-        record_runtime_fault(LIGHT_ERR_INVALID_CMD);
         microkit_mr_set(0, LIGHT_ERR_INVALID_CMD);
-        microkit_notify(CH_ERROR_REPORT);
+        microkit_notify(CH_FAULT_LINK);
         return;
     }
 

@@ -11,12 +11,12 @@
        <Region name=PD-ELF scheduler-1 addr=0x6024f000 size=432>
        <Region name=PD-ELF gpio-0 addr=0x60250000 size=23280>
        <Region name=PD-ELF gpio-1 addr=0x60256000 size=416>
-       <Region name=PD-ELF lightctl-0 addr=0x60257000 size=28456>
-       <Region name=PD-ELF lightctl-1 addr=0x6025e000 size=608>
+       <Region name=PD-ELF lightctl-0 addr=0x60257000 size=28256>
+       <Region name=PD-ELF lightctl-1 addr=0x6025e000 size=576>
        <Region name=PD-ELF commandin-0 addr=0x6025f000 size=23712>
        <Region name=PD-ELF commandin-1 addr=0x60265000 size=432>
-       <Region name=PD-ELF fault_mg-0 addr=0x60266000 size=22432>
-       <Region name=PD-ELF fault_mg-1 addr=0x6026c000 size=560>
+       <Region name=PD-ELF fault_mg-0 addr=0x60266000 size=23632>
+       <Region name=PD-ELF fault_mg-1 addr=0x6026c000 size=576>
 
 # Monitor (Initial Task) Info
 

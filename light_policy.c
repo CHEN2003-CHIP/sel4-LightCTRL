@@ -141,10 +141,10 @@ light_target_state_t light_policy_target_from_flags(uint32_t allow_flags) {
         target.turn_right = true;
     }
 
-    if ((allow_flags & LIGHT_ALLOW_LOW_BEAM) != 0U) {
-        target.low_beam = true;
-    } else if ((allow_flags & LIGHT_ALLOW_HIGH_BEAM) != 0U) {
+    if ((allow_flags & LIGHT_ALLOW_HIGH_BEAM) != 0U) {
         target.high_beam = true;
+    } else if ((allow_flags & LIGHT_ALLOW_LOW_BEAM) != 0U) {
+        target.low_beam = true;
     }
 
     return target;
