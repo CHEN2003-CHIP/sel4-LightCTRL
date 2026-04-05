@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include "logger.h"
 #include "light_policy.h"
+#include "light_runtime_guard.h"
 #include "light_protocol.h"
 
 // 閫氶亾ID锛氳皟搴﹀櫒鈫掔伅鍏夋帶鍒讹紙鍏佽鎵ц閫氱煡锛?
@@ -62,38 +63,49 @@ static const char *gpio_action_name(microkit_channel ch) {
     }
 }
 
-static bool check_speed_limit(microkit_channel ch) {
-    if ((ch == LIGHT_CH_GPIO_TURN_LEFT_ON || ch == LIGHT_CH_GPIO_TURN_RIGHT_ON)
-        && g_shmem->vehicle_speed > 120) {
-        LOG_INFO("LightCtrl: Speed limit exceeded (>120km/h), turn light denied\n");
-        microkit_mr_set(0, LIGHT_ERR_SPEED_LIMIT);
-        microkit_notify(CH_ERROR_REPORT);
-        return false;
-    }
-    if (ch == LIGHT_CH_GPIO_HIGH_BEAM_ON && g_shmem->vehicle_speed < 10) {
-        LOG_INFO("LightCtrl: Speed too low (<10km/h), high beam denied\n");
-        microkit_mr_set(0, LIGHT_ERR_SPEED_LIMIT);
-        microkit_notify(CH_ERROR_REPORT);
-        return false;
-    }
-    return true;
+static light_runtime_guard_context_t runtime_guard_context(void) {
+    light_runtime_guard_context_t context;
+
+    context.vehicle_speed = g_shmem->vehicle_speed;
+    context.last_turn_state = g_last_turn_state;
+    context.last_beam_state = g_last_beam_state;
+    context.last_brake_state = g_last_brake_state;
+    context.last_position_state = g_last_position_state;
+
+    return context;
 }
 
-static bool check_mode_conflict(microkit_channel ch) {
-    if (ch == LIGHT_CH_GPIO_LOW_BEAM_OFF && g_last_beam_state == 2) {
-        LOG_INFO("LightCtrl: Mode conflict, can't turn off low beam when high beam is on\n");
-        microkit_mr_set(0, LIGHT_ERR_MODE_CONFLICT);
-        microkit_notify(CH_ERROR_REPORT);
-        return false;
+static void log_guard_rejection(microkit_channel ch, uint8_t error_code) {
+    if (error_code == LIGHT_ERR_SPEED_LIMIT) {
+        if (ch == LIGHT_CH_GPIO_HIGH_BEAM_ON) {
+            LOG_INFO("LightCtrl: Speed too low (<10km/h), high beam denied\n");
+        } else {
+            LOG_INFO("LightCtrl: Speed limit exceeded (>120km/h), turn light denied\n");
+        }
+        return;
     }
-    if ((ch == LIGHT_CH_GPIO_TURN_LEFT_ON || ch == LIGHT_CH_GPIO_TURN_RIGHT_ON)
-        && g_last_brake_state == 1) {
-        LOG_INFO("LightCtrl: Mode conflict, brake light active, turn light denied\n");
-        microkit_mr_set(0, LIGHT_ERR_MODE_CONFLICT);
-        microkit_notify(CH_ERROR_REPORT);
-        return false;
+
+    if (error_code == LIGHT_ERR_MODE_CONFLICT) {
+        if (ch == LIGHT_CH_GPIO_LOW_BEAM_OFF) {
+            LOG_INFO("LightCtrl: Mode conflict, can't turn off low beam when high beam is on\n");
+        } else {
+            LOG_INFO("LightCtrl: Mode conflict, brake light active, turn light denied\n");
+        }
     }
-    return true;
+}
+
+static bool guard_allows_action(microkit_channel ch) {
+    light_runtime_guard_result_t result = light_runtime_guard_check_action(ch, runtime_guard_context());
+
+    if (!result.allowed) {
+        log_guard_rejection(ch, result.error_code);
+        if (result.report_fault) {
+            microkit_mr_set(0, result.error_code);
+            microkit_notify(CH_ERROR_REPORT);
+        }
+    }
+
+    return result.allowed;
 }
 
 static void trigger_gpio_operation(microkit_channel ch) {
@@ -155,7 +167,7 @@ void notified(microkit_channel ch) {
 
     if (target.brake) {
         if (g_last_brake_state != 1) {
-            if (check_mode_conflict(LIGHT_CH_GPIO_BRAKE_ON)) {
+            if (guard_allows_action(LIGHT_CH_GPIO_BRAKE_ON)) {
                 trigger_gpio_operation(LIGHT_CH_GPIO_BRAKE_ON);
                 g_last_brake_state = 1;
             }
@@ -169,16 +181,14 @@ void notified(microkit_channel ch) {
 
     if (target.turn_left) {
         if (g_last_turn_state != 1) {
-            if (check_speed_limit(LIGHT_CH_GPIO_TURN_LEFT_ON)
-                && check_mode_conflict(LIGHT_CH_GPIO_TURN_LEFT_ON)) {
+            if (guard_allows_action(LIGHT_CH_GPIO_TURN_LEFT_ON)) {
                 trigger_gpio_operation(LIGHT_CH_GPIO_TURN_LEFT_ON);
                 g_last_turn_state = 1;
             }
         }
     } else if (target.turn_right) {
         if (g_last_turn_state != 2) {
-            if (check_speed_limit(LIGHT_CH_GPIO_TURN_RIGHT_ON)
-                && check_mode_conflict(LIGHT_CH_GPIO_TURN_RIGHT_ON)) {
+            if (guard_allows_action(LIGHT_CH_GPIO_TURN_RIGHT_ON)) {
                 trigger_gpio_operation(LIGHT_CH_GPIO_TURN_RIGHT_ON);
                 g_last_turn_state = 2;
             }
@@ -195,15 +205,14 @@ void notified(microkit_channel ch) {
 
     if (target.low_beam) {
         if (g_last_beam_state != 1) {
-            if (check_mode_conflict(LIGHT_CH_GPIO_LOW_BEAM_ON)) {
+            if (guard_allows_action(LIGHT_CH_GPIO_LOW_BEAM_ON)) {
                 trigger_gpio_operation(LIGHT_CH_GPIO_LOW_BEAM_ON);
                 g_last_beam_state = 1;
             }
         }
     } else if (target.high_beam) {
         if (g_last_beam_state != 2) {
-            if (check_speed_limit(LIGHT_CH_GPIO_HIGH_BEAM_ON)
-                && check_mode_conflict(LIGHT_CH_GPIO_HIGH_BEAM_ON)) {
+            if (guard_allows_action(LIGHT_CH_GPIO_HIGH_BEAM_ON)) {
                 trigger_gpio_operation(LIGHT_CH_GPIO_HIGH_BEAM_ON);
                 g_last_beam_state = 2;
             }
