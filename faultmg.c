@@ -36,6 +36,7 @@ static void print_error_details(uint8_t err_code) {
 }
 
 void init(void) {
+    LOG_INFO("FAULT_INIT module=faultmg status=ready");
     LOG_INFO("FAULT_MGMT: initialized\n");
 }
 
@@ -45,6 +46,9 @@ void notified(microkit_channel channel) {
 
         total_error_count++;
 
+        LOG_INFO("FAULT_EVENT code=0x%02x total=%u",
+                 error_code,
+                 total_error_count);
         LOG_INFO("FAULT_MGMT: fault notification received (total: %d)", total_error_count);
 
         print_error_details(error_code);

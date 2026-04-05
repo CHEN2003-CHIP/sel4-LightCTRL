@@ -137,6 +137,7 @@ make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1
 - `make clean`：清理当前已知构建产物
 - `make debug`：以 `MICROKIT_CONFIG=debug` 构建完整镜像
 - `make release`：以 `MICROKIT_CONFIG=release` 构建完整镜像
+- `make smoke`：执行最小自动化 smoke test
 - `make help`：显示最终 target 列表和常用覆盖参数
 
 推荐使用：
@@ -187,6 +188,21 @@ make run
 ```
 
 `run` 目标会继续加载 `build/loader.img`，并以 `qemu-system-aarch64` 的 `virt` 机器模型运行，CPU 设为 `cortex-a53`，串口输出通过 `mon:stdio` 暴露到当前终端。
+
+## Smoke Test
+
+仓库现在提供一个最小自动化 smoke test：
+
+```bash
+make smoke
+```
+
+该测试会：
+
+- 构建当前完整镜像
+- 启动 QEMU 并等待 5 个核心模块初始化日志
+- 发送 `L`、`H`、`B`
+- 检查输入、调度和执行摘要日志是否命中
 
 ## Debug / Release 说明
 

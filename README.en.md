@@ -52,6 +52,7 @@ Recommended targets:
 - `make clean`
 - `make debug`
 - `make release`
+- `make smoke`
 - `make help`
 
 Recommended full build:
@@ -98,6 +99,16 @@ make run
 ```
 
 This runs the image at `build/loader.img`.
+
+## Smoke Test
+
+The repository now includes a minimal automated smoke test:
+
+```bash
+make smoke
+```
+
+It builds the full image, boots QEMU, waits for the five core module init logs, sends `L`, `H`, and `B`, and checks the expected input/scheduler/execution log chain.
 
 ## Debug / Release Notes
 

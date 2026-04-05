@@ -75,7 +75,7 @@ CONFIG_STAMP := $(BUILD_DIR)/.microkit_config_$(MICROKIT_CONFIG)
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-.PHONY: all build run clean debug release help $(LEGACY_TARGETS) legacy
+.PHONY: all build run clean debug release smoke help $(LEGACY_TARGETS) legacy
 
 all: build
 
@@ -86,6 +86,9 @@ debug:
 
 release:
 	$(MAKE) build MICROKIT_CONFIG=release
+
+smoke: build
+	./scripts/smoke_test.sh
 
 directories:
 	@mkdir -p $(BUILD_DIR)
@@ -124,6 +127,7 @@ help:
 	@echo "  clean    Remove known build artifacts under build/"
 	@echo "  debug    Build the full image with MICROKIT_CONFIG=debug"
 	@echo "  release  Build the full image with MICROKIT_CONFIG=release"
+	@echo "  smoke    Run the minimal automated smoke test"
 	@echo "  help     Show this help message"
 	@echo ""
 	@echo "Legacy compatibility targets:"

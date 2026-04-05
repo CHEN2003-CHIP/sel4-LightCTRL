@@ -30,6 +30,37 @@ static uint8_t g_last_beam_state = 0;
 static uint8_t g_last_brake_state = 0;
 static uint8_t g_last_position_state = 1;
 
+static const char *gpio_action_name(microkit_channel ch) {
+    switch (ch) {
+        case LIGHT_CH_GPIO_TURN_LEFT_ON:
+            return "turn_left_on";
+        case LIGHT_CH_GPIO_TURN_LEFT_OFF:
+            return "turn_left_off";
+        case LIGHT_CH_GPIO_TURN_RIGHT_ON:
+            return "turn_right_on";
+        case LIGHT_CH_GPIO_TURN_RIGHT_OFF:
+            return "turn_right_off";
+        case LIGHT_CH_GPIO_BRAKE_ON:
+            return "brake_on";
+        case LIGHT_CH_GPIO_BRAKE_OFF:
+            return "brake_off";
+        case LIGHT_CH_GPIO_LOW_BEAM_ON:
+            return "low_beam_on";
+        case LIGHT_CH_GPIO_LOW_BEAM_OFF:
+            return "low_beam_off";
+        case LIGHT_CH_GPIO_HIGH_BEAM_ON:
+            return "high_beam_on";
+        case LIGHT_CH_GPIO_HIGH_BEAM_OFF:
+            return "high_beam_off";
+        case LIGHT_CH_GPIO_POSITION_ON:
+            return "position_on";
+        case LIGHT_CH_GPIO_POSITION_OFF:
+            return "position_off";
+        default:
+            return "unknown";
+    }
+}
+
 static bool check_speed_limit(microkit_channel ch) {
     if ((ch == LIGHT_CH_GPIO_TURN_LEFT_ON || ch == LIGHT_CH_GPIO_TURN_RIGHT_ON)
         && g_shmem->vehicle_speed > 120) {
@@ -66,6 +97,7 @@ static bool check_mode_conflict(microkit_channel ch) {
 
 static void trigger_gpio_operation(microkit_channel ch) {
     microkit_notify(ch);
+    LOG_INFO("LIGHTCTL_GPIO action=%s channel=%d", gpio_action_name(ch), ch);
     LOG_INFO("LightCtrl: Trigger GPIO on channel %d\n", ch);
 }
 
@@ -81,6 +113,7 @@ void init(void) {
     g_last_brake_state = 0;
     g_last_position_state = 1;
 
+    LOG_INFO("LIGHTCTL_INIT module=lightctl status=ready");
     LOG_INFO("Light control module initialized\n");
 }
 
@@ -93,6 +126,14 @@ void notified(microkit_channel ch) {
     }
 
     LOG_INFO("--- LightCtrl State Check ---");
+    LOG_INFO("LIGHTCTL_SYNC allow_flags=0x%02x brake=%d left=%d right=%d low=%d high=%d pos=%d",
+             (unsigned int)g_shmem->allow_flags,
+             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE),
+             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_LEFT),
+             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_RIGHT),
+             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_LOW_BEAM),
+             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_HIGH_BEAM),
+             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_POSITION));
     LOG_INFO("Shmem: brake=%d, left=%d, right=%d, low=%d, high=%d, pos=%d",
              LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE),
              LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_LEFT),
@@ -183,4 +224,10 @@ void notified(microkit_channel ch) {
             g_last_position_state = 0;
         }
     }
+
+    LOG_INFO("LIGHTCTL_STATE brake=%d turn=%d beam=%d position=%d",
+             g_last_brake_state,
+             g_last_turn_state,
+             g_last_beam_state,
+             g_last_position_state);
 }

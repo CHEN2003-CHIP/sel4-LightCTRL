@@ -72,6 +72,62 @@ uint64_t ticks_to_ms(uint64_t ticks) {
     return (ticks * 1000ULL) / freq;
 }
 
+static const char *gpio_action_name(microkit_channel ch) {
+    switch (ch) {
+        case LIGHT_CH_GPIO_TURN_LEFT_ON:
+            return "turn_left_on";
+        case LIGHT_CH_GPIO_TURN_LEFT_OFF:
+            return "turn_left_off";
+        case LIGHT_CH_GPIO_TURN_RIGHT_ON:
+            return "turn_right_on";
+        case LIGHT_CH_GPIO_TURN_RIGHT_OFF:
+            return "turn_right_off";
+        case LIGHT_CH_GPIO_BRAKE_ON:
+            return "brake_on";
+        case LIGHT_CH_GPIO_BRAKE_OFF:
+            return "brake_off";
+        case LIGHT_CH_GPIO_LOW_BEAM_ON:
+            return "low_beam_on";
+        case LIGHT_CH_GPIO_LOW_BEAM_OFF:
+            return "low_beam_off";
+        case LIGHT_CH_GPIO_HIGH_BEAM_ON:
+            return "high_beam_on";
+        case LIGHT_CH_GPIO_HIGH_BEAM_OFF:
+            return "high_beam_off";
+        case LIGHT_CH_GPIO_POSITION_ON:
+            return "position_on";
+        case LIGHT_CH_GPIO_POSITION_OFF:
+            return "position_off";
+        default:
+            return "unknown";
+    }
+}
+
+static uint8_t gpio_action_pin(microkit_channel ch) {
+    switch (ch) {
+        case LIGHT_CH_GPIO_TURN_LEFT_ON:
+        case LIGHT_CH_GPIO_TURN_LEFT_OFF:
+            return PIN_TURN_LEFT;
+        case LIGHT_CH_GPIO_TURN_RIGHT_ON:
+        case LIGHT_CH_GPIO_TURN_RIGHT_OFF:
+            return PIN_TURN_RIGHT;
+        case LIGHT_CH_GPIO_BRAKE_ON:
+        case LIGHT_CH_GPIO_BRAKE_OFF:
+            return PIN_BRAKE;
+        case LIGHT_CH_GPIO_LOW_BEAM_ON:
+        case LIGHT_CH_GPIO_LOW_BEAM_OFF:
+            return PIN_LOW_BEAM;
+        case LIGHT_CH_GPIO_HIGH_BEAM_ON:
+        case LIGHT_CH_GPIO_HIGH_BEAM_OFF:
+            return PIN_HIGH_BEAM;
+        case LIGHT_CH_GPIO_POSITION_ON:
+        case LIGHT_CH_GPIO_POSITION_OFF:
+            return PIN_POSITION;
+        default:
+            return 0xff;
+    }
+}
+
 void init(void) {
     volatile uint32_t *gpio_dir = REG_PTR(gpio_base_vaddr, GPIO_DIR_OFFSET);
     *gpio_dir |= (1 << PIN_LOW_BEAM) |
@@ -81,6 +137,8 @@ void init(void) {
                  (1 << PIN_BRAKE) |
                  (1 << PIN_POSITION);
 
+    LOG_INFO("GPIO_INIT module=gpio status=ready low=%d high=%d left=%d right=%d brake=%d position=%d",
+             PIN_LOW_BEAM, PIN_HIGH_BEAM, PIN_TURN_LEFT, PIN_TURN_RIGHT, PIN_BRAKE, PIN_POSITION);
     LOG_INFO("GPIO Ctrl: Initialized. All pins set to output.");
     LOG_INFO("GPIO pins configured: low=%d high=%d left=%d right=%d",
              PIN_LOW_BEAM, PIN_HIGH_BEAM, PIN_TURN_LEFT, PIN_TURN_RIGHT);
@@ -101,9 +159,12 @@ static void gpio_set_pin(uint8_t pin, bool level) {
 }
 
 void notified(microkit_channel ch) {
+    bool level = false;
+
     switch (ch) {
         case LIGHT_CH_GPIO_TURN_LEFT_ON:
             gpio_set_pin(PIN_TURN_LEFT, true);
+            level = true;
             LOG_INFO("GPIO: Left Turn ON");
             break;
         case LIGHT_CH_GPIO_TURN_LEFT_OFF:
@@ -112,6 +173,7 @@ void notified(microkit_channel ch) {
             break;
         case LIGHT_CH_GPIO_TURN_RIGHT_ON:
             gpio_set_pin(PIN_TURN_RIGHT, true);
+            level = true;
             LOG_INFO("GPIO: Right Turn ON");
             break;
         case LIGHT_CH_GPIO_TURN_RIGHT_OFF:
@@ -121,6 +183,7 @@ void notified(microkit_channel ch) {
 
         case LIGHT_CH_GPIO_BRAKE_ON:
             gpio_set_pin(PIN_BRAKE, true);
+            level = true;
             LOG_INFO("GPIO: Brake ON");
             break;
         case LIGHT_CH_GPIO_BRAKE_OFF:
@@ -130,6 +193,7 @@ void notified(microkit_channel ch) {
 
         case LIGHT_CH_GPIO_LOW_BEAM_ON:
             gpio_set_pin(PIN_LOW_BEAM, true);
+            level = true;
             LOG_INFO("GPIO: Low Beam ON");
             break;
         case LIGHT_CH_GPIO_LOW_BEAM_OFF:
@@ -139,6 +203,7 @@ void notified(microkit_channel ch) {
 
         case LIGHT_CH_GPIO_HIGH_BEAM_ON:
             gpio_set_pin(PIN_HIGH_BEAM, true);
+            level = true;
             LOG_INFO("GPIO: High Beam ON");
             break;
         case LIGHT_CH_GPIO_HIGH_BEAM_OFF:
@@ -148,6 +213,7 @@ void notified(microkit_channel ch) {
 
         case LIGHT_CH_GPIO_POSITION_ON:
             gpio_set_pin(PIN_POSITION, true);
+            level = true;
             LOG_INFO("GPIO: Position Light ON");
             break;
         case LIGHT_CH_GPIO_POSITION_OFF:
@@ -158,5 +224,12 @@ void notified(microkit_channel ch) {
         default:
             LOG_ERROR("GPIO: Unknown channel %d", ch);
             break;
+    }
+
+    if (ch >= LIGHT_CH_GPIO_TURN_LEFT_ON && ch <= LIGHT_CH_GPIO_POSITION_OFF) {
+        LOG_INFO("GPIO_APPLY action=%s pin=%d level=%d",
+                 gpio_action_name(ch),
+                 gpio_action_pin(ch),
+                 level ? 1 : 0);
     }
 }

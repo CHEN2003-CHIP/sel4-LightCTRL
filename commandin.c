@@ -173,6 +173,8 @@ void init(void) {
     
     uart_init();
     
+    LOG_INFO("CMD_INIT module=commandin status=ready irq_channel=%d out_channel=%d",
+             UARTIRP_CHANNEL, LIGHTCTL_CHANNEL);
     LOG_INFO("COMMAND_IN SERVER IS RUNNING");
 }
 
@@ -239,6 +241,7 @@ void send_command(int ch)
         LOG_ERROR("error operation num\n");
         return;
     }
+    LOG_INFO("CMD_RX char=%c opcode=0x%02x", ch, (uint8_t)operationNum);
     write_command(operationNum);
 }
 

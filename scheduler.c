@@ -23,6 +23,10 @@ void init(void) {
     g_shmem->beam_switch_pos = 0;
     g_shmem->vehicle_speed = 10;
 
+    LOG_INFO("SCHED_INIT module=scheduler status=ready allow_flags=0x%02x speed=%u",
+             (unsigned int)g_shmem->allow_flags,
+             (unsigned int)g_shmem->vehicle_speed);
+
     LOG_INFO("g_shmem->allow_brake:%d \t g_shmem->allow_position: %d ",
              LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE),
              LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_POSITION));
@@ -145,14 +149,22 @@ static bool process_uart_command(uint8_t cmd) {
 
 void notified(microkit_channel ch) {
     bool need_notify_light_control = false;
+    uint32_t prev_allow_flags = g_shmem->allow_flags;
+    uint8_t cmd = LIGHT_UART_CMD_INVALID;
 
     if (ch == CH_UART_CMD) {
-        uint8_t cmd = *(uint8_t *)input_buffer;
+        cmd = *(uint8_t *)input_buffer;
         need_notify_light_control = process_uart_command(cmd);
         g_shmem->uart_cmd = LIGHT_UART_CMD_INVALID;
     } else {
         LOG_INFO("Scheduler: Unknown channel received\n");
     }
+
+    LOG_INFO("SCHED_APPLY cmd=0x%02x allow_flags=0x%02x->0x%02x notify=%d",
+             (unsigned int)cmd,
+             (unsigned int)prev_allow_flags,
+             (unsigned int)g_shmem->allow_flags,
+             need_notify_light_control ? 1 : 0);
 
     if (need_notify_light_control) {
         microkit_notify(CH_LIGHT_CONTROL_ALLOW);
