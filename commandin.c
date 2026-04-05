@@ -14,6 +14,7 @@
 #include "printf.h"
 #include <stdatomic.h>
 #include "logger.h"
+#include "light_protocol.h"
 
 
 /*
@@ -193,43 +194,43 @@ void send_command(int ch)
     int operationNum=-1;
     switch(ch){
         case LOW_BEAM_ON:
-            operationNum=0x01;
+            operationNum=LIGHT_CMD_LOW_BEAM_ON;
             break;
         case LOW_BEAM_OFF:
-            operationNum=0x00;
+            operationNum=LIGHT_CMD_LOW_BEAM_OFF;
             break;
         case HIGH_BEAM_ON:
-            operationNum=0x11;
+            operationNum=LIGHT_CMD_HIGH_BEAM_ON;
             break;
         case HIGH_BEAM_OFF:
-            operationNum=0x10;
+            operationNum=LIGHT_CMD_HIGH_BEAM_OFF;
             break;
         case LEFT_TURN_ON:
-            operationNum=0x21;
+            operationNum=LIGHT_CMD_LEFT_TURN_ON;
             break;
         case LEFT_TURN_OFF:
-            operationNum=0x20;
+            operationNum=LIGHT_CMD_LEFT_TURN_OFF;
             break;
         case RIGHT_TURN_ON:
-            operationNum=0x31;
+            operationNum=LIGHT_CMD_RIGHT_TURN_ON;
             break;
         case RIGHT_TURN_OFF:
-            operationNum=0x30;
+            operationNum=LIGHT_CMD_RIGHT_TURN_OFF;
             break;
         // ==========================================
         // 示廓灯和刹车灯的 case
         // ==========================================
         case POSITION_ON:
-            operationNum=0x41; // 自定义：0x4开头代表示廓灯
+            operationNum=LIGHT_CMD_POSITION_ON; // 自定义：0x4开头代表示廓灯
             break;
         case POSITION_OFF:
-            operationNum=0x40;
+            operationNum=LIGHT_CMD_POSITION_OFF;
             break;
         case BRAKE_ON:
-            operationNum=0x51; // 自定义：0x5开头代表刹车灯
+            operationNum=LIGHT_CMD_BRAKE_ON; // 自定义：0x5开头代表刹车灯
             break;
         case BRAKE_OFF:
-            operationNum=0x50;
+            operationNum=LIGHT_CMD_BRAKE_OFF;
             break;
         default:
             break;

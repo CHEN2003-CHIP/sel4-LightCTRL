@@ -50,6 +50,7 @@ IMAGES_PART_2 := gpio.elf lightctl.elf
 IMAGES_PART_3 := gpio.elf lightctl.elf commandin.elf
 IMAGES_PART_4 := gpio.elf lightctl.elf commandin.elf faultmg.elf
 IMAGES_PART_5 := gpio.elf lightctl.elf commandin.elf faultmg.elf scheduler.elf
+IMAGES_BUILD := $(IMAGES_PART_5)
 #IMAGES_PART_4 := serial_server.elf client.elf wordle_server.elf vmm.elf
 # Note that these warnings being disabled is to avoid compilation errors while in the middle of completing each exercise part
 CFLAGS := -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -Wall -Wno-array-bounds -Wno-unused-variable -Wno-unused-function -Werror -I$(BOARD_DIR)/include -Ivmm/src/util -Iinclude -DBOARD_$(BOARD)
@@ -64,13 +65,24 @@ IMAGE_FILE_PART_5 = $(BUILD_DIR)/demo_part_five.img
 #IMAGE_FILE_PART_4 = $(BUILD_DIR)/wordle_part_four.img
 IMAGE_FILE = $(BUILD_DIR)/loader.img
 REPORT_FILE = $(BUILD_DIR)/report.txt
+BUILD_ELFS := $(addprefix $(BUILD_DIR)/, $(IMAGES_BUILD))
 
 # VMM defines
 # KERNEL_IMAGE = vmm/images/linux
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-all: directories $(IMAGE_FILE)
+.PHONY: all build run clean debug release help part1 part2 part3 part4 part5 legacy
+
+all: build
+
+build: directories $(BUILD_ELFS) $(IMAGE_FILE)
+
+debug:
+	$(MAKE) build MICROKIT_CONFIG=debug
+
+release:
+	$(MAKE) build MICROKIT_CONFIG=release
 
 directories:
 	$(info $(shell mkdir -p $(BUILD_DIR)))
@@ -85,13 +97,46 @@ run: $(IMAGE_FILE)
 		-nographic \
 		-netdev user,id=mynet0 \
 		-device virtio-net-device,netdev=mynet0,mac=52:55:00:d1:55:01
-		
 
+clean:
+	$(info Cleaning $(BUILD_DIR))
+	$(RM) $(BUILD_DIR)/*.o
+	$(RM) $(BUILD_DIR)/*.elf
+	$(RM) $(IMAGE_FILE)
+	$(RM) $(REPORT_FILE)
+	$(RM) $(BUILD_DIR)/demo_part_one.img
+	$(RM) $(BUILD_DIR)/demo_part_two.img
+	$(RM) $(BUILD_DIR)/demo_part_three.img
+	$(RM) $(BUILD_DIR)/demo_part_four.img
+	$(RM) $(BUILD_DIR)/demo_part_five.img
+
+help:
+	@echo "Recommended targets:"
+	@echo "  build    Build the full project image (equivalent to legacy part5)"
+	@echo "  run      Run build/loader.img with qemu-system-aarch64"
+	@echo "  clean    Remove known build artifacts under build/"
+	@echo "  debug    Build the full image with MICROKIT_CONFIG=debug"
+	@echo "  release  Build the full image with MICROKIT_CONFIG=release"
+	@echo "  help     Show this help message"
+	@echo ""
+	@echo "Compatibility targets:"
+	@echo "  all      Alias of build"
+	@echo "  part1    Legacy staged build target"
+	@echo "  part2    Legacy staged build target"
+	@echo "  part3    Legacy staged build target"
+	@echo "  part4    Legacy staged build target"
+	@echo "  part5    Legacy staged build target, equivalent to build"
+	@echo ""
+	@echo "Common overrides:"
+	@echo "  make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1"
+	@echo "  make release MICROKIT_SDK=/path/to/microkit-sdk-2.0.1"
+
+# Legacy staged targets retained for compatibility.
 part1: directories $(BUILD_DIR)/gpio.elf $(IMAGE_FILE_PART_1)
 part2: directories $(BUILD_DIR)/lightctl.elf $(IMAGE_FILE_PART_2)
 part3: directories $(BUILD_DIR)/commandin.elf $(IMAGE_FILE_PART_3)
 part4: directories $(BUILD_DIR)/faultmg.elf $(IMAGE_FILE_PART_4)
-part5: directories $(BUILD_DIR)/scheduler.elf $(IMAGE_FILE_PART_5)
+part5: build
 # part4: directories $(BUILD_DIR)/vmm.elf $(IMAGE_FILE_PART_4)
 
 $(BUILD_DIR)/%.o: %.c Makefile

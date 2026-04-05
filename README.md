@@ -1,93 +1,210 @@
 # LightDemo
 
-#### 介绍
-A simple 车灯控制系统演示项目，基于 seL4 微内核和 Microkit 框架实现基本的车灯开关控制功能。
+基于 seL4 Microkit 的车灯控制演示工程。项目通过多个保护域协作，演示 UART 输入解析、规则调度、灯光控制、GPIO 驱动和故障记录之间的通信关系，默认目标板为 `qemu_virt_aarch64`，主要运行场景是 QEMU 下的功能验证。
 
-##### 项目简介
-本项目是一个基于 seL4 微内核和 Microkit 组件化框架的车灯控制演示系统，主要实现以下功能：
-1、通过相应的信号进行操作灯光
-2、基于 GPIO 组件控制硬件引脚输出
-3、组件间通过 Microkit 的通道机制进行通信
-4、支持在 QEMU 模拟器中运行和调试
-5、原生支持线程安全和内存安全
+## 项目简介
 
-#### 软件架构
-软件架构说明
-![输入图片说明](imgimage.png)
+当前仓库实现的是一个分组件的车灯控制链路：
 
+- `commandin` 从 UART 接收键盘输入，并把字符命令编码为统一的控制码。
+- `scheduler` 根据共享状态更新允许执行的灯光集合，承担规则裁决职责。
+- `lightctl` 根据调度结果触发具体灯光动作，并维护自身的状态一致性检查。
+- `gpio` 直接访问 GPIO 和定时器映射，执行实际引脚电平控制。
+- `faultmg` 接收错误上报，记录和聚合当前实现中的故障信息。
 
-#### 安装教程
+当前 `Makefile` 中提供了 `part1` 到 `part5` 的渐进式构建目标，其中 `part5` 对应当前主线的完整组合。
 
-1.  准备环境
-```Bash
-# First make a directory for the tutorial
-mkdir microkit_tutorial
-cd microkit_tutorial
-# Then download and extract the SDK
-curl -L https://github.com/seL4/microkit/releases/download/2.0.1/microkit-sdk-2.0.1-linux-x86-64.tar.gz -o sdk.tar.gz
-tar xf sdk.tar.gz
+## 仓库结构
 
+```text
+lightdemo/
+├── build/              # 当前仓库内保留的构建输出目录
+├── include/            # 公共头文件和轻量工具实现
+├── vmm/                # 预留/实验性 VMM 相关代码，当前主线未接入默认构建
+├── commandin.c         # UART 输入与命令编码
+├── faultmg.c           # 错误接收与记录
+├── gpio.c              # GPIO / 定时器侧硬件控制
+├── light.system        # Microkit 系统描述
+├── lightctl.c          # 灯光控制与状态协调
+├── scheduler.c         # 规则调度与允许集更新
+├── Makefile            # 构建入口
+├── README.md
+└── README.en.md
 ```
 
-2.  构建项目
-```Bash
-# 克隆仓库（假设已获取代码）
-git clone <仓库地址>
-cd lightdemo
+说明：
 
-# 构建项目
-make part5（目前项目推进到part5,基本完成基本功能，未来会持续更新，记得关注这个命令的变更)
+- `build/` 是构建输出目录，不是源码的一部分。
+- `vmm/` 目录当前未纳入默认的 `part1` 到 `part5` 构建链路；相关规则在 `Makefile` 中也处于注释状态。
 
-# 如需指定Microkit SDK路径
-make MICROKIT_SDK=/path/to/microkit-sdk-2.0.1
+## 架构说明
+
+### 组件职责
+
+#### `commandin`
+
+- 映射 UART 设备寄存器并处理中断。
+- 接收键盘字符，如 `L`、`l`、`H`、`h`、`Z`、`z`、`Y`、`y`、`P`、`p`、`B`、`b`。
+- 将字符转换为统一的单字节控制码，写入输入缓冲区后通知下游。
+
+#### `scheduler`
+
+- 从输入缓冲区读取控制码。
+- 维护共享状态中的 `allow_flags` 等字段。
+- 根据当前实现中的规则做准入判断，例如近光/远光、转向/制动之间的互锁关系。
+- 当允许状态发生变化时，通知 `lightctl` 执行同步。
+
+#### `lightctl`
+
+- 读取 `scheduler` 更新后的共享状态。
+- 将“允许执行的灯光状态”转换成具体 GPIO 操作通知。
+- 跟踪本地最近一次灯光状态，避免重复下发。
+- 在检测到速度限制、模式冲突或非法通知时，通过消息寄存器向 `faultmg` 上报错误码。
+
+#### `gpio`
+
+- 映射 GPIO MMIO 区域和定时器区域。
+- 初始化灯光对应的输出引脚。
+- 根据来自 `lightctl` 的通道号执行开灯/关灯操作。
+- 当前源码中包含定时器初始化和部分扩展性预留，但主线行为仍以各灯光引脚电平控制为主。
+
+#### `faultmg`
+
+- 接收 `lightctl` 发出的错误通知。
+- 读取错误码并累计错误次数。
+- 输出当前实现中的故障日志。
+- 目前主要承担记录与汇总职责，尚未实现完整的故障恢复或安全模式切换。
+
+### 系统拓扑
+
+当前 `light.system` 对应的数据流如下：
+
+```text
+commandin -> scheduler -> lightctl -> gpio
+lightctl  -> faultmg
+faultmg   -> lightctl
 ```
-3.  运行
-```Bash
-# 启动QEMU模拟器运行系统
+
+补充说明：
+
+- `scheduler` 与 `lightctl` 共享一块状态内存，用于传递允许标志和部分运行状态。
+- `commandin` 使用 UART IRQ 作为输入入口。
+- `lightctl` 与 `gpio` 之间不是单一通道，而是按灯光操作拆成多个通道，例如左右转向、制动灯、近光灯、远光灯、示廓灯的开关操作分别对应不同 channel ID。
+
+## 环境要求
+
+根据当前 `Makefile`，构建依赖以下环境：
+
+- Microkit SDK 2.0.1
+- AArch64 交叉编译工具链，`Makefile` 会按以下顺序自动探测：
+  - `aarch64-linux-gnu-gcc`
+  - `aarch64-unknown-linux-gnu-gcc`
+  - `aarch64-none-elf-gcc`
+- `qemu-system-aarch64`，用于 `make run`
+
+默认 SDK 路径为：
+
+```text
+../microkit-sdk-2.0.1
+```
+
+如果 SDK 不在该位置，需要在执行 `make` 时显式传入 `MICROKIT_SDK`。
+
+## 构建步骤
+
+### 1. 准备 Microkit SDK
+
+将 Microkit SDK 2.0.1 解压到仓库的同级目录，形成类似结构：
+
+```text
+<parent>/
+├── lightdemo/
+└── microkit-sdk-2.0.1/
+```
+
+如果目录关系不同，也可以在命令中指定：
+
+```bash
+make MICROKIT_SDK=/path/to/microkit-sdk-2.0.1 part5
+```
+
+### 2. 选择构建目标
+
+`Makefile` 提供以下分阶段目标：
+
+- `make part1`：仅构建 `gpio.elf`
+- `make part2`：加入 `lightctl.elf`
+- `make part3`：加入 `commandin.elf`
+- `make part4`：加入 `faultmg.elf`
+- `make part5`：加入 `scheduler.elf`，对应当前完整演示链路
+
+推荐使用：
+
+```bash
+make part5
+```
+
+构建时会使用：
+
+- `BOARD := qemu_virt_aarch64`
+- `MICROKIT_CONFIG := debug`
+- 构建输出目录：`build/`
+
+### 3. 构建产物
+
+根据当前 `Makefile`，主要产物包括：
+
+- 各保护域 ELF：`build/*.elf`
+- 镜像输出：`build/loader.img`
+- Microkit 报告：`build/report.txt`
+
+虽然 `part1` 到 `part5` 对应了分阶段镜像文件名变量，但 `microkit` 工具当前统一通过 `-o $(IMAGE_FILE)` 输出到：
+
+```text
+build/loader.img
+```
+
+## 运行步骤
+
+完成构建后，可通过以下命令启动 QEMU：
+
+```bash
 make run
 ```
-#### 使用教程
-启动完成以后可以按照这个操作手册进行测试和使用，你只需要按动键盘相应的按钮即可测试
-```Bash
-* 指令列表：
- * ┌──────────────┬──────────┬──────────┬──────────┐
- * │ 灯光类型     │ 开启指令 │ 关闭指令 │ 操作码   │
- * ├──────────────┼──────────┼──────────┼──────────┤
- * │ 近光灯       │ L        │ l        │ 0x01/0x00│
- * │ 远光灯       │ H        │ h        │ 0x11/0x10│
- * │ 左转向灯     │ Z        │ z        │ 0x21/0x20│
- * │ 右转向灯     │ Y        │ y        │ 0x31/0x30│
- * │ 示廓灯       │ P        │ p        │ 0x41/0x40│
- * │ 刹车灯       │ B        │ b        │ 0x51/0x50│
- * └──────────────┴──────────┴──────────┴──────────┘
- * 
+
+`run` 目标会加载：
+
+```text
+build/loader.img
 ```
 
-#### 参与贡献
+并以 `qemu-system-aarch64` 的 `virt` 机器模型运行，CPU 设为 `cortex-a53`，串口输出通过 `mon:stdio` 暴露到当前终端。
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+## 使用方式
 
+启动后，可通过串口输入以下字符命令控制灯光：
 
-#### 作者声明
-```
-注意lightdemo项目必须和microkit-sdk-2.0.1在同一级，否则需要自行修改makefile
-/*
- * lightdemo
- * ├── build/
- * ├── include/
- * ├── vmm/
- * ├── commandin.c
- * ├── faultmg.c
- * ├── gpio.c
- * ├── light.system
- * ├── lightctl.c
- * ├── Makefile
- * ├── scheduler.c
- * microkit-sdk-2.0.1/
- */
-```
+| 功能 | 打开 | 关闭 | 控制码 |
+| --- | --- | --- | --- |
+| 近光灯 | `L` | `l` | `0x01` / `0x00` |
+| 远光灯 | `H` | `h` | `0x11` / `0x10` |
+| 左转向灯 | `Z` | `z` | `0x21` / `0x20` |
+| 右转向灯 | `Y` | `y` | `0x31` / `0x30` |
+| 示廓灯 | `P` | `p` | `0x41` / `0x40` |
+| 制动灯 | `B` | `b` | `0x51` / `0x50` |
 
-USTC-CHEN ------AUTHOR
+这些字符首先由 `commandin` 编码，再经 `scheduler` 和 `lightctl` 逐级处理，最终由 `gpio` 执行对应硬件操作。
+
+## 已知限制与说明
+
+- 本仓库当前以源码与构建定义为准；现有注释中存在乱码和历史表述，README 已尽量按照实际实现重新归纳，但不对源码注释本身做修复。
+- 当前环境下若缺少 `make`、交叉编译器、Microkit SDK 或 QEMU，则无法直接完成构建与运行。
+- `faultmg` 当前主要用于错误计数和日志输出，并未实现完整的故障恢复流程。
+- `gpio.c` 中包含部分定时器/扩展预留代码，但这些内容并未改变主线构建说明。
+- 仓库内已存在 `build/` 产物；本次文档清理不会删除或重建这些文件。
+
+## 附图
+
+仓库中保留了架构示意图，可结合系统描述文件一起阅读：
+
+![LightDemo architecture](imgimage.png)

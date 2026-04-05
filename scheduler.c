@@ -2,123 +2,55 @@
 #include <stdbool.h>
 #include <microkit.h>
 #include <stddef.h>
-#include"include/logger.h"
+#include "include/logger.h"
+#include "light_protocol.h"
 
-
-// 通道ID：UART命令模块→调度器
-#define CH_UART_CMD            4
-// 通道ID：调度器→灯光控制模块
+#define CH_UART_CMD 4
 #define CH_LIGHT_CONTROL_ALLOW 9
 
-// 共享内存地址
 uintptr_t shared_memory_base_vaddr;
-uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
-// #define SHMEM_VADDR            0x40000000
-// #define SHMEM_SIZE             0x1000  // 4KB
+uintptr_t input_buffer;
 
-// ==============================================
-// 操作码
-// ==============================================
-#define UART_CMD_LOW_BEAM_OFF   0x00  // 'l'
-#define UART_CMD_LOW_BEAM_ON    0x01  // 'L'
-#define UART_CMD_HIGH_BEAM_OFF  0x10  // 'h'
-#define UART_CMD_HIGH_BEAM_ON   0x11  // 'H'
-#define UART_CMD_LEFT_TURN_OFF  0x20  // 'z'
-#define UART_CMD_LEFT_TURN_ON   0x21  // 'Z'
-#define UART_CMD_RIGHT_TURN_OFF 0x30  // 'y'
-#define UART_CMD_RIGHT_TURN_ON  0x31  // 'Y'
-//示廓灯、刹车灯
-#define UART_CMD_POSITION_OFF   0x40
-#define UART_CMD_POSITION_ON    0x41
-#define UART_CMD_BRAKE_OFF      0x50
-#define UART_CMD_BRAKE_ON       0x51
+static light_shmem_t *g_shmem = NULL;
 
-
-
-// 位掩码定义 (Bit Masks)
-#define FLAG_ALLOW_BRAKE       (1UL << 0)
-#define FLAG_ALLOW_TURN_LEFT   (1UL << 1)
-#define FLAG_ALLOW_TURN_RIGHT  (1UL << 2)
-#define FLAG_ALLOW_LOW_BEAM    (1UL << 3)
-#define FLAG_ALLOW_HIGH_BEAM   (1UL << 4)
-#define FLAG_ALLOW_POSITION    (1UL << 5)
-
-// 辅助宏：检查位是否置位
-#define IS_FLAG_SET(flags, mask)  (((flags) & (mask)) != 0)
-
-// ==============================================
-// 共享内存数据结构
-// ==============================================
-typedef struct {
-    // UART命令模块写入的操作码
-    volatile uint8_t  uart_cmd;
-
-    volatile uint32_t allow_flags;
-
-    // 原始信号参数
-    volatile uint8_t  turn_switch_pos;
-    volatile uint8_t  beam_switch_pos;
-    volatile uint16_t vehicle_speed;
-} light_shmem_t;
-
-
-// 共享内存指针
-// static light_shmem_t *const g_shmem = (light_shmem_t *const)shared_memory_base_vaddr;
-static light_shmem_t * g_shmem = NULL;
-// ==============================================
-// 系统启动时调用
-// ==============================================
 void init(void) {
     g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
-    g_shmem->uart_cmd = 0xFF;
+    g_shmem->uart_cmd = LIGHT_UART_CMD_INVALID;
 
-    g_shmem->allow_flags = 0; // 先全部清零
-    g_shmem->allow_flags |= FLAG_ALLOW_POSITION; // 置位示廓灯
-
+    g_shmem->allow_flags = 0;
+    g_shmem->allow_flags |= LIGHT_ALLOW_POSITION;
     g_shmem->turn_switch_pos = 0;
     g_shmem->beam_switch_pos = 0;
-    g_shmem->vehicle_speed    = 10;
+    g_shmem->vehicle_speed = 10;
 
     LOG_INFO("g_shmem->allow_brake:%d \t g_shmem->allow_position: %d ",
-             IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_BRAKE),
-             IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_POSITION));
+             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE),
+             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_POSITION));
 
     LOG_INFO("Light scheduler initialized: position light allowed by default\n");
 }
 
-// ==============================================
-// 处理UART操作码
-// ==============================================
 static bool process_uart_command(uint8_t cmd) {
     bool need_notify = false;
 
     switch (cmd) {
-        // ==========================================
-        // 近光灯控制
-        // ==========================================
-        case UART_CMD_LOW_BEAM_ON:
-            g_shmem->allow_flags |= FLAG_ALLOW_LOW_BEAM; // 置位
+        case LIGHT_CMD_LOW_BEAM_ON:
+            g_shmem->allow_flags |= LIGHT_ALLOW_LOW_BEAM;
             need_notify = true;
             LOG_INFO("Scheduler: UART cmd - Low beam ON allowed\n");
             break;
 
-        case UART_CMD_LOW_BEAM_OFF:
-            g_shmem->allow_flags &= ~FLAG_ALLOW_LOW_BEAM; // 清零
-            // 互锁：近光灯关闭时禁止远光灯
-            g_shmem->allow_flags &= ~FLAG_ALLOW_HIGH_BEAM;
+        case LIGHT_CMD_LOW_BEAM_OFF:
+            g_shmem->allow_flags &= ~LIGHT_ALLOW_LOW_BEAM;
+            g_shmem->allow_flags &= ~LIGHT_ALLOW_HIGH_BEAM;
             need_notify = true;
             LOG_INFO("Scheduler: UART cmd - Low beam OFF, high beam locked\n");
             break;
 
-        // ==========================================
-        // 远光灯控制
-        // ==========================================
-        case UART_CMD_HIGH_BEAM_ON:
-            // 互锁检查：近光灯已开启
-            if (IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_LOW_BEAM)) {
-                // 互锁检查：刹车灯未开启
-                if (!IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_BRAKE)) {
-                    g_shmem->allow_flags |= FLAG_ALLOW_HIGH_BEAM;
+        case LIGHT_CMD_HIGH_BEAM_ON:
+            if (LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_LOW_BEAM)) {
+                if (!LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE)) {
+                    g_shmem->allow_flags |= LIGHT_ALLOW_HIGH_BEAM;
                     need_notify = true;
                     LOG_INFO("Scheduler: UART cmd - High beam ON allowed\n");
                 } else {
@@ -129,21 +61,20 @@ static bool process_uart_command(uint8_t cmd) {
             }
             break;
 
-        case UART_CMD_HIGH_BEAM_OFF:
-            g_shmem->allow_flags &= ~FLAG_ALLOW_HIGH_BEAM;
+        case LIGHT_CMD_HIGH_BEAM_OFF:
+            g_shmem->allow_flags &= ~LIGHT_ALLOW_HIGH_BEAM;
             need_notify = true;
             LOG_INFO("Scheduler: UART cmd - High beam OFF\n");
             break;
 
-        // ==========================================
-        // 左转向灯控制
-        // ==========================================
-        case UART_CMD_LEFT_TURN_ON:
-            if (!IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_BRAKE)) {
-                if (!IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_TURN_RIGHT)) {
-                    LOG_INFO("Pre-check: allow_turn_left=%d", IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_TURN_LEFT));
-                    g_shmem->allow_flags |= FLAG_ALLOW_TURN_LEFT;
-                    LOG_INFO("Post-check: allow_turn_left=%d", IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_TURN_LEFT));
+        case LIGHT_CMD_LEFT_TURN_ON:
+            if (!LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE)) {
+                if (!LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_RIGHT)) {
+                    LOG_INFO("Pre-check: allow_turn_left=%d",
+                             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_LEFT));
+                    g_shmem->allow_flags |= LIGHT_ALLOW_TURN_LEFT;
+                    LOG_INFO("Post-check: allow_turn_left=%d",
+                             LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_LEFT));
                     need_notify = true;
                     LOG_INFO("Scheduler: UART cmd - Left turn ON allowed\n");
                 } else {
@@ -154,19 +85,16 @@ static bool process_uart_command(uint8_t cmd) {
             }
             break;
 
-        case UART_CMD_LEFT_TURN_OFF:
-            g_shmem->allow_flags &= ~FLAG_ALLOW_TURN_LEFT;
+        case LIGHT_CMD_LEFT_TURN_OFF:
+            g_shmem->allow_flags &= ~LIGHT_ALLOW_TURN_LEFT;
             need_notify = true;
             LOG_INFO("Scheduler: UART cmd - Left turn OFF\n");
             break;
 
-        // ==========================================
-        //右转向灯控制
-        // ==========================================
-        case UART_CMD_RIGHT_TURN_ON:
-            if (!IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_BRAKE)) {
-                if (!IS_FLAG_SET(g_shmem->allow_flags, FLAG_ALLOW_TURN_LEFT)) {
-                    g_shmem->allow_flags |= FLAG_ALLOW_TURN_RIGHT;
+        case LIGHT_CMD_RIGHT_TURN_ON:
+            if (!LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_BRAKE)) {
+                if (!LIGHT_FLAG_IS_SET(g_shmem->allow_flags, LIGHT_ALLOW_TURN_LEFT)) {
+                    g_shmem->allow_flags |= LIGHT_ALLOW_TURN_RIGHT;
                     need_notify = true;
                     LOG_INFO("Scheduler: UART cmd - Right turn ON allowed\n");
                 } else {
@@ -177,38 +105,32 @@ static bool process_uart_command(uint8_t cmd) {
             }
             break;
 
-        case UART_CMD_RIGHT_TURN_OFF:
-            g_shmem->allow_flags &= ~FLAG_ALLOW_TURN_RIGHT;
+        case LIGHT_CMD_RIGHT_TURN_OFF:
+            g_shmem->allow_flags &= ~LIGHT_ALLOW_TURN_RIGHT;
             need_notify = true;
             LOG_INFO("Scheduler: UART cmd - Right turn OFF\n");
             break;
-        
-        // ==========================================
-        // 示廓灯控制
-        // ==========================================
-        case UART_CMD_POSITION_ON:
-            g_shmem->allow_flags |= FLAG_ALLOW_POSITION;
+
+        case LIGHT_CMD_POSITION_ON:
+            g_shmem->allow_flags |= LIGHT_ALLOW_POSITION;
             need_notify = true;
             LOG_INFO("Scheduler: UART cmd - Position light ON allowed\n");
             break;
 
-        case UART_CMD_POSITION_OFF:
-            g_shmem->allow_flags &= ~FLAG_ALLOW_POSITION;
+        case LIGHT_CMD_POSITION_OFF:
+            g_shmem->allow_flags &= ~LIGHT_ALLOW_POSITION;
             need_notify = true;
             LOG_INFO("Scheduler: UART cmd - Position light OFF\n");
             break;
 
-        // ==========================================
-        // 刹车灯控制
-        // ==========================================
-        case UART_CMD_BRAKE_ON:
-            g_shmem->allow_flags |= FLAG_ALLOW_BRAKE;
+        case LIGHT_CMD_BRAKE_ON:
+            g_shmem->allow_flags |= LIGHT_ALLOW_BRAKE;
             need_notify = true;
             LOG_INFO("Scheduler: UART cmd - Brake ON allowed\n");
             break;
 
-        case UART_CMD_BRAKE_OFF:
-            g_shmem->allow_flags &= ~FLAG_ALLOW_BRAKE;
+        case LIGHT_CMD_BRAKE_OFF:
+            g_shmem->allow_flags &= ~LIGHT_ALLOW_BRAKE;
             need_notify = true;
             LOG_INFO("Scheduler: UART cmd - Brake OFF\n");
             break;
@@ -221,18 +143,13 @@ static bool process_uart_command(uint8_t cmd) {
     return need_notify;
 }
 
-
-
-// ==============================================
-// 收到通知时调用（单线程串行执行，天然原子）
-// ==============================================
 void notified(microkit_channel ch) {
     bool need_notify_light_control = false;
 
     if (ch == CH_UART_CMD) {
-        uint8_t cmd = *(uint8_t*)input_buffer;
+        uint8_t cmd = *(uint8_t *)input_buffer;
         need_notify_light_control = process_uart_command(cmd);
-        g_shmem->uart_cmd = 0xFF;
+        g_shmem->uart_cmd = LIGHT_UART_CMD_INVALID;
     } else {
         LOG_INFO("Scheduler: Unknown channel received\n");
     }
