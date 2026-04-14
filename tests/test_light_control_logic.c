@@ -93,6 +93,23 @@ static void test_speed_and_brake_state_limit_risky_outputs(void) {
     expect_true(target_output.low_beam_on == 1U, "low beam request should remain active");
 }
 
+static void test_low_speed_blocks_high_beam_but_not_low_beam(void) {
+    light_operator_request_t request = default_request();
+    light_vehicle_state_t vehicle_state = default_vehicle_state();
+    light_target_output_t target_output;
+
+    request.low_beam_req = 1;
+    request.high_beam_req = 1;
+    vehicle_state.speed_kph = 5U;
+
+    target_output = light_control_compute_target_output(request,
+                                                        vehicle_state,
+                                                        LIGHT_FAULT_MODE_NORMAL);
+
+    expect_true(target_output.high_beam_on == 0U, "low speed should block high beam");
+    expect_true(target_output.low_beam_on == 1U, "low speed should preserve low beam");
+}
+
 static void test_ignition_off_cuts_drive_lighting_but_keeps_marker_request(void) {
     light_operator_request_t request = default_request();
     light_vehicle_state_t vehicle_state = default_vehicle_state();
@@ -132,6 +149,7 @@ int main(void) {
     test_degraded_mode_clamps_high_beam();
     test_safe_mode_forces_conservative_target_output();
     test_speed_and_brake_state_limit_risky_outputs();
+    test_low_speed_blocks_high_beam_but_not_low_beam();
     test_ignition_off_cuts_drive_lighting_but_keeps_marker_request();
     test_operator_commands_update_request_state();
 

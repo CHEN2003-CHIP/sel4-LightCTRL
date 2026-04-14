@@ -82,6 +82,7 @@
     <protection_domain name="vehicle_state" priority="245">
         <map mr="shared_memory_for_scheduler" vaddr="0x4000000" perms="rw" cached="true"
             setvar_vaddr="shared_memory_base_vaddr" />
+        <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
         <program_image path="vehicle_state.elf"/>
     </protection_domain>
 
@@ -129,6 +130,11 @@
     <channel>
         <end pd="scheduler" id="15"/>
         <end pd="vehicle_state" id="16"/>
+    </channel>
+
+    <channel>
+        <end pd="commandin" id="17"/>
+        <end pd="vehicle_state" id="18"/>
     </channel>
 
     <!-- 为了区别各个通信功能，lightctl和gpio用多个channel来沟通 -->

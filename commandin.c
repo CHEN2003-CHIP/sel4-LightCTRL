@@ -15,6 +15,7 @@
 #include "printf.h"
 #include <stdatomic.h>
 #include "logger.h"
+#include "light_command_codec.h"
 #include "light_protocol.h"
 
 
@@ -74,6 +75,7 @@ uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
 #define PL011_UARTFR_RXFE (1 << 4)        /* UART接收FIFO空标志位 */
 
 #define LIGHTCTL_CHANNEL 3
+#define VEHICLE_STATE_CHANNEL 17
 #define UARTIRP_CHANNEL 0
 #define TEST_FAULT_CHANNEL 11
 
@@ -185,10 +187,10 @@ void init(void) {
     LOG_INFO("COMMAND_IN SERVER IS RUNNING");
 }
 
-void write_command(int cm){
+static void write_command_to_channel(int cm, microkit_channel channel){
     char* inputbuf=(char*)input_buffer;
     *(uint8_t*)inputbuf=cm;
-    microkit_notify(LIGHTCTL_CHANNEL);
+    microkit_notify(channel);
 }
 
 #if LIGHT_ENABLE_TEST_HOOKS
@@ -225,7 +227,8 @@ static bool try_inject_test_fault(int ch) {
  */
 void send_command(int ch)
 {
-    int operationNum=-1;
+    uint8_t operation_num = LIGHT_UART_CMD_INVALID;
+    microkit_channel target_channel = LIGHTCTL_CHANNEL;
 
 #if LIGHT_ENABLE_TEST_HOOKS
     if (try_inject_test_fault(ch)) {
@@ -233,55 +236,16 @@ void send_command(int ch)
     }
 #endif
 
-    switch(ch){
-        case LOW_BEAM_ON:
-            operationNum=LIGHT_CMD_LOW_BEAM_ON;
-            break;
-        case LOW_BEAM_OFF:
-            operationNum=LIGHT_CMD_LOW_BEAM_OFF;
-            break;
-        case HIGH_BEAM_ON:
-            operationNum=LIGHT_CMD_HIGH_BEAM_ON;
-            break;
-        case HIGH_BEAM_OFF:
-            operationNum=LIGHT_CMD_HIGH_BEAM_OFF;
-            break;
-        case LEFT_TURN_ON:
-            operationNum=LIGHT_CMD_LEFT_TURN_ON;
-            break;
-        case LEFT_TURN_OFF:
-            operationNum=LIGHT_CMD_LEFT_TURN_OFF;
-            break;
-        case RIGHT_TURN_ON:
-            operationNum=LIGHT_CMD_RIGHT_TURN_ON;
-            break;
-        case RIGHT_TURN_OFF:
-            operationNum=LIGHT_CMD_RIGHT_TURN_OFF;
-            break;
-        // ==========================================
-        // 示廓灯和刹车灯的 case
-        // ==========================================
-        case POSITION_ON:
-            operationNum=LIGHT_CMD_POSITION_ON; // 自定义：0x4开头代表示廓灯
-            break;
-        case POSITION_OFF:
-            operationNum=LIGHT_CMD_POSITION_OFF;
-            break;
-        case BRAKE_ON:
-            operationNum=LIGHT_CMD_BRAKE_ON; // 自定义：0x5开头代表刹车灯
-            break;
-        case BRAKE_OFF:
-            operationNum=LIGHT_CMD_BRAKE_OFF;
-            break;
-        default:
-            break;
-    }
-    if(operationNum==-1){
+    if (!light_command_decode_char(ch, &operation_num)) {
         LOG_ERROR("error operation num\n");
         return;
     }
-    LOG_INFO("CMD_RX char=%c opcode=0x%02x", ch, (uint8_t)operationNum);
-    write_command(operationNum);
+    if (light_command_is_vehicle_state_cmd(operation_num)) {
+        target_channel = VEHICLE_STATE_CHANNEL;
+    }
+
+    LOG_INFO("CMD_RX char=%c opcode=0x%02x target=%d", ch, operation_num, target_channel);
+    write_command_to_channel(operation_num, target_channel);
 }
 
 
