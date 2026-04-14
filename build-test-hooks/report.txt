@@ -11,9 +11,9 @@
        <Region name=PD-ELF scheduler-1 addr=0x6024f000 size=432>
        <Region name=PD-ELF gpio-0 addr=0x60250000 size=25464>
        <Region name=PD-ELF gpio-1 addr=0x60257000 size=560>
-       <Region name=PD-ELF lightctl-0 addr=0x60258000 size=30576>
+       <Region name=PD-ELF lightctl-0 addr=0x60258000 size=30528>
        <Region name=PD-ELF lightctl-1 addr=0x60260000 size=592>
-       <Region name=PD-ELF commandin-0 addr=0x60261000 size=23712>
+       <Region name=PD-ELF commandin-0 addr=0x60261000 size=24008>
        <Region name=PD-ELF commandin-1 addr=0x60267000 size=432>
        <Region name=PD-ELF fault_mg-0 addr=0x60268000 size=24240>
        <Region name=PD-ELF fault_mg-1 addr=0x6026e000 size=592>

@@ -31,6 +31,7 @@ SYSTEM_DESCRIPTION := light.system
 
 CPU := cortex-a53
 HOST_CC ?= cc
+TEST_HOOKS ?= 0
 
 CC := $(TOOLCHAIN)-gcc
 LD := $(TOOLCHAIN)-ld
@@ -38,11 +39,12 @@ AS := $(TOOLCHAIN)-as
 MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
 
 PRINTF_OBJS := printf.o util.o
-GPIO_OBJS := $(PRINTF_OBJS) gpio.o
 POLICY_OBJS := light_policy.o
+OUTPUT_POLICY_OBJS := light_output_policy.o
 RUNTIME_GUARD_OBJS := light_runtime_guard.o
 FAULT_MODE_OBJS := light_fault_mode.o
-LIGHTCTL_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) $(RUNTIME_GUARD_OBJS) $(FAULT_MODE_OBJS) lightctl.o
+GPIO_OBJS := $(PRINTF_OBJS) $(FAULT_MODE_OBJS) gpio.o
+LIGHTCTL_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) $(OUTPUT_POLICY_OBJS) $(RUNTIME_GUARD_OBJS) $(FAULT_MODE_OBJS) lightctl.o
 COMMANDIN_OBJS := $(PRINTF_OBJS) commandin.o
 FAULT_MG_OBJS := $(PRINTF_OBJS) $(FAULT_MODE_OBJS) faultmg.o
 SCHEDULER_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) scheduler.o
@@ -59,7 +61,13 @@ IMAGES_BUILD := $(IMAGES_PART_5)
 LEGACY_TARGETS := part1 part2 part3 part4 part5
 #IMAGES_PART_4 := serial_server.elf client.elf wordle_server.elf vmm.elf
 # Note that these warnings being disabled is to avoid compilation errors while in the middle of completing each exercise part
-CFLAGS := -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding -g -Wall -Wno-array-bounds -Wno-unused-variable -Wno-unused-function -Werror -I$(BOARD_DIR)/include -Ivmm/src/util -Iinclude -DBOARD_$(BOARD)
+ifeq ($(MICROKIT_CONFIG),release)
+PROJECT_OPT_FLAGS := -O2 -DNDEBUG -g0
+else
+PROJECT_OPT_FLAGS := -O0 -g
+endif
+
+CFLAGS := -mcpu=$(CPU) -mstrict-align -nostdlib -ffreestanding $(PROJECT_OPT_FLAGS) -Wall -Wno-array-bounds -Wno-unused-variable -Wno-unused-function -Werror -I$(BOARD_DIR)/include -Ivmm/src/util -Iinclude -DBOARD_$(BOARD) -DLIGHT_ENABLE_TEST_HOOKS=$(TEST_HOOKS)
 LDFLAGS := -L$(BOARD_DIR)/lib -L/usr/aarch64-linux-gnu/lib
 LIBS := -lmicrokit -Tmicrokit.ld -lc -lrt
 
@@ -79,7 +87,7 @@ CONFIG_STAMP := $(BUILD_DIR)/.microkit_config_$(MICROKIT_CONFIG)
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-.PHONY: all build run clean debug release smoke test-policy test-runtime test-fault help $(LEGACY_TARGETS) legacy
+.PHONY: all build run clean debug release smoke test-policy test-runtime test-fault test-fault-transport test-integration-fault help $(LEGACY_TARGETS) legacy
 
 all: build
 
@@ -94,6 +102,10 @@ release:
 smoke: build
 	./scripts/smoke_test.sh
 
+test-integration-fault:
+	$(MAKE) build BUILD_DIR=build-test-hooks TEST_HOOKS=1
+	IMAGE_FILE=build-test-hooks/loader.img ./scripts/fault_injection_test.sh
+
 test-policy: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_policy.c light_policy.c -o build/test_light_policy
 	./build/test_light_policy
@@ -103,8 +115,12 @@ test-runtime: | directories
 	./build/test_light_runtime_guard
 
 test-fault: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode.c light_fault_mode.c light_runtime_guard.c -o build/test_light_fault_mode
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode.c light_fault_mode.c light_output_policy.c light_runtime_guard.c -o build/test_light_fault_mode
 	./build/test_light_fault_mode
+
+test-fault-transport: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode_transport.c light_fault_mode.c -o build/test_light_fault_mode_transport
+	./build/test_light_fault_mode_transport
 
 directories:
 	@mkdir -p $(BUILD_DIR)
@@ -147,6 +163,8 @@ help:
 	@echo "  test-policy Run host-side policy unit tests"
 	@echo "  test-runtime Run host-side runtime guard unit tests"
 	@echo "  test-fault Run host-side fault mode tests"
+	@echo "  test-fault-transport Run host-side fault mode transport tests"
+	@echo "  test-integration-fault Run QEMU fault-injection integration test (test hooks enabled)"
 	@echo "  help     Show this help message"
 	@echo ""
 	@echo "Legacy compatibility targets:"
@@ -163,8 +181,8 @@ help:
 	@echo "  make release MICROKIT_SDK=/path/to/microkit-sdk-2.0.1"
 	@echo ""
 	@echo "Notes:"
-	@echo "  release selects the Microkit SDK release configuration."
-	@echo "  Compiler flags remain otherwise unchanged in this project Makefile."
+	@echo "  release selects the Microkit SDK release configuration and uses -O2 -DNDEBUG -g0."
+	@echo "  test-integration-fault builds into build-test-hooks/ with test-only fault injection hooks enabled."
 
 legacy: part1 part2 part3 part4 part5
 

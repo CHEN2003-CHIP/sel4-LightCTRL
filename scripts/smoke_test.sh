@@ -2,6 +2,7 @@
 set -eu
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+IMAGE_FILE="${IMAGE_FILE:-build/loader.img}"
 LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lightctl-smoke.XXXXXX")"
 LOG_FILE="$LOG_DIR/qemu.log"
 UART_FIFO="$LOG_DIR/uart.fifo"
@@ -50,7 +51,7 @@ qemu-system-aarch64 -machine virt,virtualization=on \
     -cpu cortex-a53 \
     -rtc base=localtime \
     -serial mon:stdio \
-    -device loader,file=build/loader.img,addr=0x70000000,cpu-num=0 \
+    -device loader,file="$IMAGE_FILE",addr=0x70000000,cpu-num=0 \
     -m size=2G \
     -nographic \
     -netdev user,id=mynet0 \
@@ -70,20 +71,20 @@ wait_for_log "FAULT_INIT module=faultmg status=ready"
 send_key "L"
 wait_for_log "CMD_RX char=L opcode=0x01"
 wait_for_log "SCHED_APPLY cmd=0x01"
-wait_for_log "LIGHTCTL_GPIO action=low_beam_on"
-wait_for_log "GPIO_APPLY action=low_beam_on"
+wait_for_log "LIGHTCTL_TARGET_SUMMARY mode=NORMAL requested=[brake=0,left=0,right=0,low=1,high=0,pos=1] effective=[brake=0,left=0,right=0,low=1,high=0,pos=1] changed=0"
+wait_for_log "GPIO_OUTPUT_SUMMARY brake=0 left=0 right=0 low=1 high=0 position=1"
 
 send_key "H"
 wait_for_log "CMD_RX char=H opcode=0x11"
 wait_for_log "SCHED_APPLY cmd=0x11"
-wait_for_log "LIGHTCTL_GPIO action=high_beam_on"
-wait_for_log "GPIO_APPLY action=high_beam_on"
+wait_for_log "LIGHTCTL_TARGET_SUMMARY mode=NORMAL requested=[brake=0,left=0,right=0,low=0,high=1,pos=1] effective=[brake=0,left=0,right=0,low=0,high=1,pos=1] changed=0"
+wait_for_log "GPIO_OUTPUT_SUMMARY brake=0 left=0 right=0 low=1 high=1 position=1"
 
 send_key "B"
 wait_for_log "CMD_RX char=B opcode=0x51"
 wait_for_log "SCHED_APPLY cmd=0x51"
-wait_for_log "LIGHTCTL_GPIO action=brake_on"
-wait_for_log "GPIO_APPLY action=brake_on"
+wait_for_log "LIGHTCTL_TARGET_SUMMARY mode=NORMAL requested=[brake=1,left=0,right=0,low=0,high=1,pos=1] effective=[brake=1,left=0,right=0,low=0,high=1,pos=1] changed=0"
+wait_for_log "GPIO_OUTPUT_SUMMARY brake=1 left=0 right=0 low=1 high=1 position=1"
 
 trap - EXIT
 stop_qemu

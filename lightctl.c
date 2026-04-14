@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include "logger.h"
 #include "light_fault_mode.h"
+#include "light_output_policy.h"
 #include "light_policy.h"
 #include "light_runtime_guard.h"
 #include "light_protocol.h"
@@ -25,14 +26,16 @@
 uintptr_t cmd_buffer;
 uintptr_t input_buffer;
 uintptr_t shared_memory_base_vaddr;
+uintptr_t fault_mode_shared_vaddr;
 
 static light_shmem_t *g_shmem = NULL;
 
 static uint8_t g_last_turn_state = 0;
 static uint8_t g_last_beam_state = 0;
 static uint8_t g_last_brake_state = 0;
-static uint8_t g_last_position_state = 1;
-static fault_mode_t g_fault_mode = LIGHT_FAULT_MODE_NORMAL;
+static uint8_t g_last_position_state = 0;
+static fault_mode_t g_fault_mode_cache = LIGHT_FAULT_MODE_NORMAL;
+static bool g_output_sync_ready = false;
 
 static const char *gpio_action_name(microkit_channel ch) {
     switch (ch) {
@@ -73,7 +76,7 @@ static light_runtime_guard_context_t runtime_guard_context(void) {
     context.last_beam_state = g_last_beam_state;
     context.last_brake_state = g_last_brake_state;
     context.last_position_state = g_last_position_state;
-    context.fault_mode = g_fault_mode;
+    context.fault_mode = g_fault_mode_cache;
 
     return context;
 }
@@ -116,56 +119,69 @@ static bool guard_allows_action(microkit_channel ch) {
     return result.allowed;
 }
 
+static void log_output_policy_adjustment(light_target_state_t requested_target,
+                                         light_target_state_t effective_target) {
+    LOG_WARN("LIGHTCTL_OUTPUT_CLAMP mode=%s req[brake=%d left=%d right=%d low=%d high=%d pos=%d] eff[brake=%d left=%d right=%d low=%d high=%d pos=%d]",
+             light_fault_mode_name(g_fault_mode_cache),
+             requested_target.brake,
+             requested_target.turn_left,
+             requested_target.turn_right,
+             requested_target.low_beam,
+             requested_target.high_beam,
+             requested_target.position,
+             effective_target.brake,
+             effective_target.turn_left,
+             effective_target.turn_right,
+             effective_target.low_beam,
+             effective_target.high_beam,
+             effective_target.position);
+}
+
+static void log_target_summary(light_target_state_t requested_target,
+                               light_target_state_t effective_target,
+                               bool changed) {
+    LOG_INFO("LIGHTCTL_TARGET_SUMMARY mode=%s requested=[brake=%d,left=%d,right=%d,low=%d,high=%d,pos=%d] effective=[brake=%d,left=%d,right=%d,low=%d,high=%d,pos=%d] changed=%d",
+             light_fault_mode_name(g_fault_mode_cache),
+             requested_target.brake,
+             requested_target.turn_left,
+             requested_target.turn_right,
+             requested_target.low_beam,
+             requested_target.high_beam,
+             requested_target.position,
+             effective_target.brake,
+             effective_target.turn_left,
+             effective_target.turn_right,
+             effective_target.low_beam,
+             effective_target.high_beam,
+             effective_target.position,
+             changed ? 1 : 0);
+}
+
 static void trigger_gpio_operation(microkit_channel ch) {
     microkit_notify(ch);
     LOG_INFO("LIGHTCTL_GPIO action=%s channel=%d", gpio_action_name(ch), ch);
     LOG_INFO("LightCtrl: Trigger GPIO on channel %d\n", ch);
 }
 
-void init(void) {
-    g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
-    if (g_shmem == NULL) {
-        microkit_dbg_puts("LightCtrl ERROR: Shared memory not mapped!\n");
-        while (1);
-    }
-
-    g_last_turn_state = 0;
-    g_last_beam_state = 0;
-    g_last_brake_state = 0;
-    g_last_position_state = 1;
-    g_fault_mode = LIGHT_FAULT_MODE_NORMAL;
-
-    LOG_INFO("LIGHTCTL_INIT module=lightctl status=ready");
-    LOG_INFO("Light control module initialized\n");
-}
-
-void notified(microkit_channel ch) {
-    light_target_state_t target;
-
-    if (ch == CH_FAULT_LINK) {
-        g_fault_mode = (fault_mode_t)microkit_mr_get(0);
-        LOG_INFO("LIGHTCTL_FAULT_MODE_UPDATE mode=%s", light_fault_mode_name(g_fault_mode));
-        return;
-    }
-
-    if (ch != CH_SCHEDULER_ALLOW) {
-        LOG_INFO("LightCtrl: Unknown channel, ignore\n");
-        microkit_mr_set(0, LIGHT_ERR_INVALID_CMD);
-        microkit_notify(CH_FAULT_LINK);
-        return;
-    }
-
-    target = light_policy_target_from_flags(g_shmem->allow_flags);
+static void sync_outputs(void) {
+    light_target_state_t requested_target = light_policy_target_from_flags(g_shmem->allow_flags);
+    light_output_policy_result_t policy_result =
+        light_output_policy_apply(requested_target, g_fault_mode_cache);
+    light_target_state_t target = policy_result.target;
 
     LOG_INFO("--- LightCtrl State Check ---");
     LOG_INFO("LIGHTCTL_SYNC allow_flags=0x%02x brake=%d left=%d right=%d low=%d high=%d pos=%d",
              (unsigned int)g_shmem->allow_flags,
-             target.brake,
-             target.turn_left,
-             target.turn_right,
-             target.low_beam,
-             target.high_beam,
-             target.position);
+             requested_target.brake,
+             requested_target.turn_left,
+             requested_target.turn_right,
+             requested_target.low_beam,
+             requested_target.high_beam,
+             requested_target.position);
+    log_target_summary(requested_target, target, policy_result.changed);
+    if (policy_result.changed) {
+        log_output_policy_adjustment(requested_target, target);
+    }
     LOG_INFO("Shmem: brake=%d, left=%d, right=%d, low=%d, high=%d, pos=%d",
              target.brake,
              target.turn_left,
@@ -219,6 +235,10 @@ void notified(microkit_channel ch) {
     }
 
     if (target.low_beam) {
+        if (g_last_beam_state == 2) {
+            trigger_gpio_operation(LIGHT_CH_GPIO_HIGH_BEAM_OFF);
+            g_last_beam_state = 0;
+        }
         if (g_last_beam_state != 1) {
             if (guard_allows_action(LIGHT_CH_GPIO_LOW_BEAM_ON)) {
                 trigger_gpio_operation(LIGHT_CH_GPIO_LOW_BEAM_ON);
@@ -259,4 +279,41 @@ void notified(microkit_channel ch) {
              g_last_turn_state,
              g_last_beam_state,
              g_last_position_state);
+    g_output_sync_ready = true;
+}
+
+void init(void) {
+    g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
+    if (g_shmem == NULL) {
+        microkit_dbg_puts("LightCtrl ERROR: Shared memory not mapped!\n");
+        while (1);
+    }
+
+    g_last_turn_state = 0;
+    g_last_beam_state = 0;
+    g_last_brake_state = 0;
+    g_last_position_state = 0;
+    g_fault_mode_cache = LIGHT_FAULT_MODE_NORMAL;
+    g_output_sync_ready = false;
+
+    LOG_INFO("LIGHTCTL_INIT module=lightctl status=ready");
+    LOG_INFO("Light control module initialized\n");
+}
+
+void notified(microkit_channel ch) {
+    if (ch == CH_FAULT_LINK) {
+        g_fault_mode_cache = light_fault_mode_transport_load((volatile const uint8_t *)fault_mode_shared_vaddr);
+        LOG_INFO("LIGHTCTL_FAULT_MODE_UPDATE mode=%s", light_fault_mode_name(g_fault_mode_cache));
+        sync_outputs();
+        return;
+    }
+
+    if (ch != CH_SCHEDULER_ALLOW) {
+        LOG_INFO("LightCtrl: Unknown channel, ignore\n");
+        microkit_mr_set(0, LIGHT_ERR_INVALID_CMD);
+        microkit_notify(CH_FAULT_LINK);
+        return;
+    }
+
+    sync_outputs();
 }

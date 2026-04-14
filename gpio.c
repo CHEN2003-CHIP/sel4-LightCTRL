@@ -13,11 +13,13 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <sel4/sel4.h>
+#include "light_fault_mode.h"
 #include "light_protocol.h"
 
 uintptr_t gpio_base_vaddr;
 uintptr_t cmd_buffer;
 uintptr_t timer_base_vaddr;
+uintptr_t fault_mode_shared_vaddr;
 
 #define GPIO_CHANNEL 1
 #define FAULT_NOTIFY_CHANNEL 8
@@ -31,6 +33,13 @@ static bool left_turn_active = false;
 static bool right_turn_active = false;
 static uint8_t left_turn_state = 0;
 static uint8_t right_turn_state = 0;
+static fault_mode_t g_fault_mode_cache = LIGHT_FAULT_MODE_NORMAL;
+static bool g_output_brake = false;
+static bool g_output_turn_left = false;
+static bool g_output_turn_right = false;
+static bool g_output_low_beam = false;
+static bool g_output_high_beam = false;
+static bool g_output_position = false;
 
 #define PIN_LOW_BEAM   0
 #define PIN_HIGH_BEAM  1
@@ -145,6 +154,7 @@ void init(void) {
     LOG_INFO("GPIO: starting\n");
 
     timer_init();
+    g_fault_mode_cache = LIGHT_FAULT_MODE_NORMAL;
     LOG_INFO("GPIO PD initialized, timer started");
 }
 
@@ -158,66 +168,92 @@ static void gpio_set_pin(uint8_t pin, bool level) {
     }
 }
 
+static void log_gpio_output_summary(void) {
+    LOG_INFO("GPIO_OUTPUT_SUMMARY brake=%d left=%d right=%d low=%d high=%d position=%d",
+             g_output_brake ? 1 : 0,
+             g_output_turn_left ? 1 : 0,
+             g_output_turn_right ? 1 : 0,
+             g_output_low_beam ? 1 : 0,
+             g_output_high_beam ? 1 : 0,
+             g_output_position ? 1 : 0);
+}
+
 void notified(microkit_channel ch) {
     bool level = false;
 
     switch (ch) {
+        case FAULT_NOTIFY_CHANNEL:
+            g_fault_mode_cache = light_fault_mode_transport_load((volatile const uint8_t *)fault_mode_shared_vaddr);
+            LOG_INFO("GPIO_FAULT_MODE_UPDATE mode=%s", light_fault_mode_name(g_fault_mode_cache));
+            return;
         case LIGHT_CH_GPIO_TURN_LEFT_ON:
             gpio_set_pin(PIN_TURN_LEFT, true);
             level = true;
+            g_output_turn_left = true;
             LOG_INFO("GPIO: Left Turn ON");
             break;
         case LIGHT_CH_GPIO_TURN_LEFT_OFF:
             gpio_set_pin(PIN_TURN_LEFT, false);
+            g_output_turn_left = false;
             LOG_INFO("GPIO: Left Turn OFF");
             break;
         case LIGHT_CH_GPIO_TURN_RIGHT_ON:
             gpio_set_pin(PIN_TURN_RIGHT, true);
             level = true;
+            g_output_turn_right = true;
             LOG_INFO("GPIO: Right Turn ON");
             break;
         case LIGHT_CH_GPIO_TURN_RIGHT_OFF:
             gpio_set_pin(PIN_TURN_RIGHT, false);
+            g_output_turn_right = false;
             LOG_INFO("GPIO: Right Turn OFF");
             break;
 
         case LIGHT_CH_GPIO_BRAKE_ON:
             gpio_set_pin(PIN_BRAKE, true);
             level = true;
+            g_output_brake = true;
             LOG_INFO("GPIO: Brake ON");
             break;
         case LIGHT_CH_GPIO_BRAKE_OFF:
             gpio_set_pin(PIN_BRAKE, false);
+            g_output_brake = false;
             LOG_INFO("GPIO: Brake OFF");
             break;
 
         case LIGHT_CH_GPIO_LOW_BEAM_ON:
             gpio_set_pin(PIN_LOW_BEAM, true);
             level = true;
+            g_output_low_beam = true;
             LOG_INFO("GPIO: Low Beam ON");
             break;
         case LIGHT_CH_GPIO_LOW_BEAM_OFF:
             gpio_set_pin(PIN_LOW_BEAM, false);
+            g_output_low_beam = false;
             LOG_INFO("GPIO: Low Beam OFF");
             break;
 
         case LIGHT_CH_GPIO_HIGH_BEAM_ON:
             gpio_set_pin(PIN_HIGH_BEAM, true);
             level = true;
+            g_output_high_beam = true;
             LOG_INFO("GPIO: High Beam ON");
             break;
         case LIGHT_CH_GPIO_HIGH_BEAM_OFF:
             gpio_set_pin(PIN_HIGH_BEAM, false);
+            g_output_high_beam = false;
             LOG_INFO("GPIO: High Beam OFF");
             break;
 
         case LIGHT_CH_GPIO_POSITION_ON:
             gpio_set_pin(PIN_POSITION, true);
             level = true;
+            g_output_position = true;
             LOG_INFO("GPIO: Position Light ON");
             break;
         case LIGHT_CH_GPIO_POSITION_OFF:
             gpio_set_pin(PIN_POSITION, false);
+            g_output_position = false;
             LOG_INFO("GPIO: Position Light OFF");
             break;
 
@@ -231,5 +267,6 @@ void notified(microkit_channel ch) {
                  gpio_action_name(ch),
                  gpio_action_pin(ch),
                  level ? 1 : 0);
+        log_gpio_output_summary();
     }
 }

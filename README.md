@@ -59,21 +59,24 @@ lightdemo/
 - 读取 `scheduler` 更新后的共享状态。
 - 将“允许执行的灯光状态”转换成具体 GPIO 操作通知。
 - 跟踪本地最近一次灯光状态，避免重复下发。
-- 在检测到速度限制、模式冲突或非法通知时，通过消息寄存器向 `faultmg` 上报错误码。
+- 在检测到速度限制、模式冲突或非法通知时，只通过消息寄存器向 `faultmg` 上报 fault event / 错误码。
+- 缓存最近一次由 `faultmg` 下发的 fault mode，并只把该缓存作为运行时安全约束输入。
 
 #### `gpio`
 
 - 映射 GPIO MMIO 区域和定时器区域。
 - 初始化灯光对应的输出引脚。
 - 根据来自 `lightctl` 的通道号执行开灯/关灯操作。
+- 接收 `faultmg` 广播的当前 fault mode，用于保持故障模式在域间的一致观察。
 - 当前源码中包含定时器初始化和部分扩展性预留，但主线行为仍以各灯光引脚电平控制为主。
 
 #### `faultmg`
 
 - 接收 `lightctl` 发出的错误通知。
 - 读取错误码并累计错误次数。
-- 输出当前实现中的故障日志。
-- 目前主要承担记录与汇总职责，尚未实现完整的故障恢复或安全模式切换。
+- 作为 fault mode 的唯一 owner，根据错误码和计数裁决 `NORMAL / WARN / DEGRADED / SAFE_MODE`。
+- 通过现有通道把当前 fault mode 广播回 `lightctl` 和 `gpio`。
+- 输出当前实现中的故障日志；当前仍未实现自动恢复到更低 fault mode 的流程。
 
 ### 系统拓扑
 
@@ -138,9 +141,11 @@ make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1
 - `make debug`：以 `MICROKIT_CONFIG=debug` 构建完整镜像
 - `make release`：以 `MICROKIT_CONFIG=release` 构建完整镜像
 - `make smoke`：执行最小自动化 smoke test
+- `make test-integration-fault`：执行带测试 hook 的 QEMU fault injection 集成测试
 - `make test-policy`：执行宿主机上的规则层单元测试
 - `make test-runtime`：执行宿主机上的运行时安全单元测试
 - `make test-fault`：执行宿主机上的故障模式单元测试
+- `make test-fault-transport`：执行宿主机上的 fault mode 共享字节传播测试
 - `make help`：显示最终 target 列表和常用覆盖参数
 
 推荐使用：
@@ -205,13 +210,51 @@ make smoke
 - 构建当前完整镜像
 - 启动 QEMU 并等待 5 个核心模块初始化日志
 - 发送 `L`、`H`、`B`
-- 检查输入、调度和执行摘要日志是否命中，其中 `H` 需要命中 `high_beam_on` 的执行日志
+- 基于固定摘要日志断言 `scheduler -> lightctl -> gpio` 的关键状态传播链路
+
+## Fault Injection 集成测试
+
+仓库现在还提供一条最小侵入的 fault injection 集成验证：
+
+```bash
+make test-integration-fault
+```
+
+该测试会在单独的 `build-test-hooks/` 构建目录中启用测试 hook，并在 QEMU 中验证：
+
+- `fault event -> faultmg mode transition -> lightctl immediate sync -> gpio output switch`
+- `NORMAL -> DEGRADED`
+- `NORMAL -> SAFE_MODE`
+- mode 更新后无需等待下一次常规 `SCHED_APPLY` 即可生效
 
 ## Debug / Release 说明
 
 - `debug` 和 `release` 通过切换 `MICROKIT_CONFIG`，选择 Microkit SDK 中 `qemu_virt_aarch64/debug` 或 `qemu_virt_aarch64/release` 目录下的板级输入。
-- 在当前仓库中，`release` 不会额外修改项目自己的编译选项，`CFLAGS` 仍保留 `-g`。因此它是 “Microkit release 配置构建入口”，不是单独设计过的强优化/去符号发布配置。
+- 在当前仓库中，`release` 除了切换 Microkit SDK 配置外，也会使用 `-O2 -DNDEBUG -g0`，更接近发布构建。
 - 本地 Microkit SDK 2.0.1 已包含 `debug` 和 `release` 两套目录，因此 `make release` 当前可用。
+
+## 本地验证与 CI
+
+推荐的本地验证顺序：
+
+```bash
+make test-policy
+make test-runtime
+make test-fault
+make test-fault-transport
+make smoke
+make test-integration-fault
+```
+
+仓库还包含 GitHub Actions CI 配置：
+
+- 默认运行 host validation：`make test-policy`、`make test-fault`、`make test-fault-transport`
+- 当 CI 环境提供 `MICROKIT_SDK_URL` 时，额外运行 QEMU validation：`make smoke`
+- 当 CI 环境未提供 `MICROKIT_SDK_URL` 时，会在日志和 job summary 中明确说明 QEMU validation 被跳过的原因
+
+如果本地或 CI 缺少 Microkit SDK / QEMU，则宿主机单元测试仍可单独执行。
+
+更具体的贡献与验证说明见 [CONTRIBUTING.md](/home/chen/microkit_tutorial/lightCtlTest/CONTRIBUTING.md)。
 
 ## 使用方式
 
@@ -233,8 +276,23 @@ make smoke
 - 规则层 `light_policy` 负责把命令转换为允许标志和目标灯态。
 - 对于光束目标态，当前实现中 `HIGH_BEAM_ON` 在规则层会覆盖低光目标态，因此 `H` 会向 `lightctl` 和 `gpio` 传递 `high_beam_on`。
 - 运行时安全层 `light_runtime_guard` 负责基于速度、执行历史和当前 fault mode 拒绝高风险动作。
-- fault mode 的所有权当前收敛在 `faultmg`：`faultmg` 负责根据错误码和计数推导 `NORMAL / WARN / DEGRADED / SAFE_MODE`，再通过已有的 `fault_mg -> lightctl` channel 把当前 mode 通知给 `lightctl`。
-- `lightctl` 不再维护独立的 fault mode 状态机，只缓存 faultmg 下发的当前 mode，并据此约束高风险动作。
+- fault mode 的所有权当前收敛在 `faultmg`：`faultmg` 负责根据错误码和计数推导 `NORMAL / WARN / DEGRADED / SAFE_MODE`，再通过已有通道把当前 mode 广播给其他域。
+- `lightctl` 不再维护独立的 fault mode 状态机，只缓存 `faultmg` 下发的当前 mode，并据此在最终输出路径上裁剪目标灯态。
+- `gpio` 当前不参与 fault mode 裁决，但会接收 `faultmg` 的广播，用于保持域间对当前模式的统一观察。
+
+### Fault Mode 输出策略
+
+- `NORMAL`：不裁剪目标输出，按规则层和运行时保护的结果执行。
+- `WARN`：当前保持与 `NORMAL` 一致，不额外裁剪最终输出，只保留告警与计数。
+- `DEGRADED`：禁止远光输出；强制近光和示廓灯开启；保留转向和制动灯。
+- `SAFE_MODE`：禁止远光输出；强制近光和示廓灯开启；保留转向和制动灯。
+
+| Fault Mode | 制动灯 | 转向灯 | 近光灯 | 远光灯 | 示廓灯 | 最低照明 |
+| --- | --- | --- | --- | --- | --- | --- |
+| `NORMAL` | 按请求透传 | 按请求透传 | 按请求透传 | 按请求透传 | 按请求透传 | 不强制 |
+| `WARN` | 按请求透传 | 按请求透传 | 按请求透传 | 按请求透传 | 按请求透传 | 不强制 |
+| `DEGRADED` | 按请求透传 | 按请求透传 | 强制开启 | 强制关闭 | 强制开启 | 强制保留近光与示廓灯 |
+| `SAFE_MODE` | 按请求透传 | 按请求透传 | 强制开启 | 强制关闭 | 强制开启 | 强制保留近光与示廓灯 |
 
 ## 已知限制与说明
 

@@ -27,6 +27,7 @@
     <memory_region name="uart_phys" size="0x1000" phys_addr="0x9000000" />
     <memory_region name="timer_phys" size="0x1000" phys_addr="0x10011000" />
     <memory_region name="shared_memory_for_scheduler" size="0x1000"/>
+    <memory_region name="fault_mode_shared" size="0x1000"/>
 
     <!-- SHEDULER模块 用来调度-->
     <protection_domain name="scheduler" priority="253" >
@@ -42,6 +43,7 @@
         <map mr="gpio_mmio" vaddr="0x4000000" perms="rw" cached="false"
             setvar_vaddr="gpio_base_vaddr" />
         <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
+        <map mr="fault_mode_shared" vaddr="0x5003000" perms="rw" setvar_vaddr="fault_mode_shared_vaddr"/>
         <!-- <map mr="output_buffer" vaddr="0x5000000" perms="rw" setvar_vaddr="output_buffer"/> --> 
         <map mr="timer_phys" vaddr="0x5000000" perms="rw" cached="false"
             setvar_vaddr="timer_base_vaddr" />
@@ -55,6 +57,7 @@
             setvar_vaddr="shared_memory_base_vaddr" />
         <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
         <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
+        <map mr="fault_mode_shared" vaddr="0x5003000" perms="rw" setvar_vaddr="fault_mode_shared_vaddr"/>
         <program_image path="lightctl.elf"/>     
     </protection_domain>
 
@@ -70,6 +73,8 @@
 
     <!-- FAULTMG模块 处理异常-->
     <protection_domain name="fault_mg" priority="210">
+        <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="test_input_buffer"/>
+        <map mr="fault_mode_shared" vaddr="0x5003000" perms="rw" setvar_vaddr="fault_mode_shared_vaddr"/>
         <program_image path="faultmg.elf"/>  
     </protection_domain>
 
@@ -101,6 +106,12 @@
     <channel>
         <end pd="scheduler" id="9"/>
         <end pd="lightctl" id="10"/>
+    </channel>
+
+    <!-- Test-only fault injection path: commandin -> fault_mg -->
+    <channel>
+        <end pd="commandin" id="11"/>
+        <end pd="fault_mg" id="12"/>
     </channel>
 
     <!-- 为了区别各个通信功能，lightctl和gpio用多个channel来沟通 -->

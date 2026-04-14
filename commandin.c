@@ -10,6 +10,7 @@
 
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <microkit.h>
 #include "printf.h"
 #include <stdatomic.h>
@@ -74,6 +75,12 @@ uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
 
 #define LIGHTCTL_CHANNEL 3
 #define UARTIRP_CHANNEL 0
+#define TEST_FAULT_CHANNEL 11
+
+#if LIGHT_ENABLE_TEST_HOOKS
+#define TEST_FAULT_MODE_CONFLICT '!'
+#define TEST_FAULT_HW_STATE '#'
+#endif
 
 /**
  * @def REG_PTR(base, offset)
@@ -184,6 +191,31 @@ void write_command(int cm){
     microkit_notify(LIGHTCTL_CHANNEL);
 }
 
+#if LIGHT_ENABLE_TEST_HOOKS
+static bool try_inject_test_fault(int ch) {
+    uint8_t error_code = 0;
+
+    switch (ch) {
+        case TEST_FAULT_MODE_CONFLICT:
+            error_code = LIGHT_ERR_MODE_CONFLICT;
+            break;
+        case TEST_FAULT_HW_STATE:
+            error_code = LIGHT_ERR_HW_STATE_ERR;
+            break;
+        default:
+            return false;
+    }
+
+    LOG_INFO("CMD_TEST_FAULT char=%c code=0x%02x channel=%d",
+             ch,
+             error_code,
+             TEST_FAULT_CHANNEL);
+    *(volatile uint8_t *)input_buffer = error_code;
+    microkit_notify(TEST_FAULT_CHANNEL);
+    return true;
+}
+#endif
+
 /**
  * @brief 转换指令字符为标准化操作码并发送
  * @details 将键盘输入的指令字符映射为16进制操作码，调用write_command发送
@@ -194,6 +226,13 @@ void write_command(int cm){
 void send_command(int ch)
 {
     int operationNum=-1;
+
+#if LIGHT_ENABLE_TEST_HOOKS
+    if (try_inject_test_fault(ch)) {
+        return;
+    }
+#endif
+
     switch(ch){
         case LOW_BEAM_ON:
             operationNum=LIGHT_CMD_LOW_BEAM_ON;
