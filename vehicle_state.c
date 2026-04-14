@@ -28,20 +28,22 @@ void init(void) {
 
 void notified(microkit_channel ch) {
     if (ch == CH_COMMAND_INPUT) {
-        uint8_t cmd = *(uint8_t *)input_buffer;
+        light_vehicle_state_request_t request = *(light_vehicle_state_request_t *)input_buffer;
         light_vehicle_state_update_result_t result =
-            light_vehicle_state_apply_command((light_vehicle_state_t)g_shmem->vehicle_state, cmd);
+            light_vehicle_state_apply_request((light_vehicle_state_t)g_shmem->vehicle_state, request);
 
         if (!result.accepted) {
-            LOG_INFO("VEHICLE_STATE_REJECT cmd=0x%02x reason=%d",
-                     (unsigned int)cmd,
+            LOG_INFO("VEHICLE_STATE_REJECT field=%u value=%u reason=%d",
+                     (unsigned int)request.field,
+                     (unsigned int)request.value,
                      (int)result.reason);
             return;
         }
 
         g_shmem->vehicle_state = result.next_state;
-        LOG_INFO("VEHICLE_STATE_UPDATE cmd=0x%02x changed=%d speed=%u brake=%u ignition=%u",
-                 (unsigned int)cmd,
+        LOG_INFO("VEHICLE_STATE_UPDATE field=%u value=%u changed=%d speed=%u brake=%u ignition=%u",
+                 (unsigned int)request.field,
+                 (unsigned int)request.value,
                  result.changed ? 1 : 0,
                  (unsigned int)result.next_state.speed_kph,
                  (unsigned int)result.next_state.brake_pedal,

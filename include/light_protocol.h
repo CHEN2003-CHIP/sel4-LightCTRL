@@ -17,13 +17,6 @@
 #define LIGHT_CMD_POSITION_ON     0x41
 #define LIGHT_CMD_BRAKE_OFF       0x50
 #define LIGHT_CMD_BRAKE_ON        0x51
-#define LIGHT_CMD_VEHICLE_SPEED_DEC   0x60
-#define LIGHT_CMD_VEHICLE_SPEED_INC   0x61
-#define LIGHT_CMD_VEHICLE_IGNITION_OFF 0x70
-#define LIGHT_CMD_VEHICLE_IGNITION_ON  0x71
-#define LIGHT_CMD_VEHICLE_BRAKE_OFF    0x80
-#define LIGHT_CMD_VEHICLE_BRAKE_ON     0x81
-
 #define LIGHT_ERR_SPEED_LIMIT     0x01
 #define LIGHT_ERR_MODE_CONFLICT   0x02
 #define LIGHT_ERR_INVALID_CMD     0x03
@@ -39,6 +32,13 @@
 #define LIGHT_FLAG_IS_SET(flags, mask) (((flags) & (mask)) != 0)
 
 #define LIGHT_UART_CMD_INVALID    0xFF
+#define LIGHT_COMMAND_LINE_MAX    32U
+
+typedef enum {
+    LIGHT_VEHICLE_FIELD_SPEED_KPH = 1,
+    LIGHT_VEHICLE_FIELD_IGNITION_ON = 2,
+    LIGHT_VEHICLE_FIELD_BRAKE_PEDAL = 3,
+} light_vehicle_field_t;
 
 typedef struct {
     uint8_t low_beam_req;
@@ -54,6 +54,11 @@ typedef struct {
     uint8_t brake_pedal;
     uint8_t ignition_on;
 } light_vehicle_state_t;
+
+typedef struct {
+    uint8_t field;
+    uint16_t value;
+} light_vehicle_state_request_t;
 
 typedef struct {
     uint8_t low_beam_on;

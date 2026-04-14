@@ -1,63 +1,61 @@
 #include "light_vehicle_state.h"
 
-static uint16_t clamp_speed_inc(uint16_t speed_kph) {
-    if (speed_kph >= LIGHT_VEHICLE_SPEED_MAX_KPH) {
-        return LIGHT_VEHICLE_SPEED_MAX_KPH;
+static bool request_field_is_known(light_vehicle_state_request_t request) {
+    switch ((light_vehicle_field_t)request.field) {
+        case LIGHT_VEHICLE_FIELD_SPEED_KPH:
+        case LIGHT_VEHICLE_FIELD_IGNITION_ON:
+        case LIGHT_VEHICLE_FIELD_BRAKE_PEDAL:
+            return true;
+        default:
+            return false;
     }
-
-    if ((uint32_t)speed_kph + LIGHT_VEHICLE_SPEED_STEP_KPH > LIGHT_VEHICLE_SPEED_MAX_KPH) {
-        return LIGHT_VEHICLE_SPEED_MAX_KPH;
-    }
-
-    return (uint16_t)(speed_kph + LIGHT_VEHICLE_SPEED_STEP_KPH);
 }
 
-static uint16_t clamp_speed_dec(uint16_t speed_kph) {
-    if (speed_kph <= LIGHT_VEHICLE_SPEED_STEP_KPH) {
-        return 0U;
+static bool request_value_is_valid(light_vehicle_state_request_t request) {
+    switch ((light_vehicle_field_t)request.field) {
+        case LIGHT_VEHICLE_FIELD_SPEED_KPH:
+            return request.value <= LIGHT_VEHICLE_SPEED_MAX_KPH;
+        case LIGHT_VEHICLE_FIELD_IGNITION_ON:
+        case LIGHT_VEHICLE_FIELD_BRAKE_PEDAL:
+            return request.value <= 1U;
+        default:
+            return false;
     }
-
-    return (uint16_t)(speed_kph - LIGHT_VEHICLE_SPEED_STEP_KPH);
 }
 
-light_vehicle_state_update_result_t light_vehicle_state_apply_command(light_vehicle_state_t state,
-                                                                      uint8_t cmd) {
+light_vehicle_state_update_result_t light_vehicle_state_apply_request(light_vehicle_state_t state,
+                                                                      light_vehicle_state_request_t request) {
     light_vehicle_state_update_result_t result;
 
-    result.cmd = cmd;
+    result.request = request;
     result.next_state = state;
     result.accepted = false;
     result.changed = false;
     result.reason = LIGHT_VEHICLE_STATE_REASON_OK;
 
-    switch (cmd) {
-        case LIGHT_CMD_VEHICLE_SPEED_DEC:
-            result.next_state.speed_kph = clamp_speed_dec(state.speed_kph);
+    if (!request_field_is_known(request)) {
+        result.reason = LIGHT_VEHICLE_STATE_REASON_INVALID_REQUEST;
+        return result;
+    }
+
+    if (!request_value_is_valid(request)) {
+        result.reason = LIGHT_VEHICLE_STATE_REASON_INVALID_VALUE;
+        return result;
+    }
+
+    switch ((light_vehicle_field_t)request.field) {
+        case LIGHT_VEHICLE_FIELD_SPEED_KPH:
+            result.next_state.speed_kph = request.value;
             result.accepted = true;
             break;
-        case LIGHT_CMD_VEHICLE_SPEED_INC:
-            result.next_state.speed_kph = clamp_speed_inc(state.speed_kph);
+        case LIGHT_VEHICLE_FIELD_IGNITION_ON:
+            result.next_state.ignition_on = (uint8_t)request.value;
             result.accepted = true;
             break;
-        case LIGHT_CMD_VEHICLE_IGNITION_OFF:
-            result.next_state.ignition_on = 0U;
+        case LIGHT_VEHICLE_FIELD_BRAKE_PEDAL:
+            result.next_state.brake_pedal = (uint8_t)request.value;
             result.accepted = true;
             break;
-        case LIGHT_CMD_VEHICLE_IGNITION_ON:
-            result.next_state.ignition_on = 1U;
-            result.accepted = true;
-            break;
-        case LIGHT_CMD_VEHICLE_BRAKE_OFF:
-            result.next_state.brake_pedal = 0U;
-            result.accepted = true;
-            break;
-        case LIGHT_CMD_VEHICLE_BRAKE_ON:
-            result.next_state.brake_pedal = 1U;
-            result.accepted = true;
-            break;
-        default:
-            result.reason = LIGHT_VEHICLE_STATE_REASON_INVALID_CMD;
-            return result;
     }
 
     result.changed = result.next_state.speed_kph != state.speed_kph

@@ -11,18 +11,19 @@
 
 typedef enum {
     LIGHT_VEHICLE_STATE_REASON_OK = 0,
-    LIGHT_VEHICLE_STATE_REASON_INVALID_CMD = 1,
+    LIGHT_VEHICLE_STATE_REASON_INVALID_REQUEST = 1,
+    LIGHT_VEHICLE_STATE_REASON_INVALID_VALUE = 2,
 } light_vehicle_state_reason_t;
 
 typedef struct {
-    uint8_t cmd;
+    light_vehicle_state_request_t request;
     light_vehicle_state_t next_state;
     bool accepted;
     bool changed;
     light_vehicle_state_reason_t reason;
 } light_vehicle_state_update_result_t;
 
-light_vehicle_state_update_result_t light_vehicle_state_apply_command(light_vehicle_state_t state,
-                                                                      uint8_t cmd);
+light_vehicle_state_update_result_t light_vehicle_state_apply_request(light_vehicle_state_t state,
+                                                                      light_vehicle_state_request_t request);
 
 #endif

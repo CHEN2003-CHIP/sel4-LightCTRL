@@ -1,6 +1,31 @@
 #include "light_command_codec.h"
 
-#include "light_protocol.h"
+#include <stddef.h>
+
+static bool parse_decimal_u16(const char *text, uint16_t *value) {
+    size_t i = 0;
+    uint32_t parsed = 0;
+
+    if (text[0] == '\0') {
+        return false;
+    }
+
+    while (text[i] != '\0') {
+        char ch = text[i];
+
+        if (ch < '0' || ch > '9') {
+            return false;
+        }
+        parsed = parsed * 10U + (uint32_t)(ch - '0');
+        if (parsed > 65535U) {
+            return false;
+        }
+        i++;
+    }
+
+    *value = (uint16_t)parsed;
+    return true;
+}
 
 bool light_command_decode_char(int ch, uint8_t *cmd) {
     uint8_t decoded = LIGHT_UART_CMD_INVALID;
@@ -42,24 +67,6 @@ bool light_command_decode_char(int ch, uint8_t *cmd) {
         case 'b':
             decoded = LIGHT_CMD_BRAKE_OFF;
             break;
-        case 'S':
-            decoded = LIGHT_CMD_VEHICLE_SPEED_INC;
-            break;
-        case 's':
-            decoded = LIGHT_CMD_VEHICLE_SPEED_DEC;
-            break;
-        case 'I':
-            decoded = LIGHT_CMD_VEHICLE_IGNITION_ON;
-            break;
-        case 'i':
-            decoded = LIGHT_CMD_VEHICLE_IGNITION_OFF;
-            break;
-        case 'K':
-            decoded = LIGHT_CMD_VEHICLE_BRAKE_ON;
-            break;
-        case 'k':
-            decoded = LIGHT_CMD_VEHICLE_BRAKE_OFF;
-            break;
         default:
             return false;
     }
@@ -68,16 +75,53 @@ bool light_command_decode_char(int ch, uint8_t *cmd) {
     return true;
 }
 
-bool light_command_is_vehicle_state_cmd(uint8_t cmd) {
-    switch (cmd) {
-        case LIGHT_CMD_VEHICLE_SPEED_DEC:
-        case LIGHT_CMD_VEHICLE_SPEED_INC:
-        case LIGHT_CMD_VEHICLE_IGNITION_OFF:
-        case LIGHT_CMD_VEHICLE_IGNITION_ON:
-        case LIGHT_CMD_VEHICLE_BRAKE_OFF:
-        case LIGHT_CMD_VEHICLE_BRAKE_ON:
-            return true;
-        default:
-            return false;
+bool light_vehicle_state_parse_line(const char *line, light_vehicle_state_request_t *request) {
+    uint16_t value = 0;
+
+    if (line == NULL || request == NULL) {
+        return false;
     }
+
+    if (line[0] == 's' && line[1] == 'p' && line[2] == 'e' && line[3] == 'e'
+        && line[4] == 'd' && line[5] == '=') {
+        if (!parse_decimal_u16(&line[6], &value)) {
+            return false;
+        }
+        request->field = LIGHT_VEHICLE_FIELD_SPEED_KPH;
+        request->value = value;
+        return true;
+    }
+
+    if (line[0] == 'i' && line[1] == 'g' && line[2] == 'n' && line[3] == 'i'
+        && line[4] == 't' && line[5] == 'i' && line[6] == 'o' && line[7] == 'n'
+        && line[8] == '=') {
+        if (line[9] == '0' && line[10] == '\0') {
+            request->field = LIGHT_VEHICLE_FIELD_IGNITION_ON;
+            request->value = 0U;
+            return true;
+        }
+        if (line[9] == '1' && line[10] == '\0') {
+            request->field = LIGHT_VEHICLE_FIELD_IGNITION_ON;
+            request->value = 1U;
+            return true;
+        }
+        return false;
+    }
+
+    if (line[0] == 'b' && line[1] == 'r' && line[2] == 'a' && line[3] == 'k'
+        && line[4] == 'e' && line[5] == '=') {
+        if (line[6] == '0' && line[7] == '\0') {
+            request->field = LIGHT_VEHICLE_FIELD_BRAKE_PEDAL;
+            request->value = 0U;
+            return true;
+        }
+        if (line[6] == '1' && line[7] == '\0') {
+            request->field = LIGHT_VEHICLE_FIELD_BRAKE_PEDAL;
+            request->value = 1U;
+            return true;
+        }
+        return false;
+    }
+
+    return false;
 }

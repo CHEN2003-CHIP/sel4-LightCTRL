@@ -34,24 +34,6 @@
 */
 
 
-#define LOW_BEAM_ON 'L'
-#define LOW_BEAM_OFF 'l'
-#define HIGH_BEAM_ON 'H'
-#define HIGH_BEAM_OFF 'h'
-#define LEFT_TURN_ON 'Z'
-#define LEFT_TURN_OFF 'z'
-#define RIGHT_TURN_ON 'Y'
-#define RIGHT_TURN_OFF 'y'
-
-// 刹车灯和示廓灯按键定义
-#define POSITION_ON 'P'
-#define POSITION_OFF 'p'
-#define BRAKE_ON 'B'
-#define BRAKE_OFF 'b'
-
-
-
-
 // This variable will have the address of the UART device
 /**
  * @var uart_base_vaddr
@@ -83,6 +65,9 @@ uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
 #define TEST_FAULT_MODE_CONFLICT '!'
 #define TEST_FAULT_HW_STATE '#'
 #endif
+
+static char g_vehicle_line[LIGHT_COMMAND_LINE_MAX];
+static uint8_t g_vehicle_line_len = 0;
 
 /**
  * @def REG_PTR(base, offset)
@@ -181,6 +166,7 @@ void init(void) {
     // the UART device.
     
     uart_init();
+    g_vehicle_line_len = 0;
     
     LOG_INFO("CMD_INIT module=commandin status=ready irq_channel=%d out_channel=%d",
              UARTIRP_CHANNEL, LIGHTCTL_CHANNEL);
@@ -191,6 +177,11 @@ static void write_command_to_channel(int cm, microkit_channel channel){
     char* inputbuf=(char*)input_buffer;
     *(uint8_t*)inputbuf=cm;
     microkit_notify(channel);
+}
+
+static void write_vehicle_request(light_vehicle_state_request_t request) {
+    *(light_vehicle_state_request_t *)input_buffer = request;
+    microkit_notify(VEHICLE_STATE_CHANNEL);
 }
 
 #if LIGHT_ENABLE_TEST_HOOKS
@@ -228,7 +219,6 @@ static bool try_inject_test_fault(int ch) {
 void send_command(int ch)
 {
     uint8_t operation_num = LIGHT_UART_CMD_INVALID;
-    microkit_channel target_channel = LIGHTCTL_CHANNEL;
 
 #if LIGHT_ENABLE_TEST_HOOKS
     if (try_inject_test_fault(ch)) {
@@ -240,12 +230,45 @@ void send_command(int ch)
         LOG_ERROR("error operation num\n");
         return;
     }
-    if (light_command_is_vehicle_state_cmd(operation_num)) {
-        target_channel = VEHICLE_STATE_CHANNEL;
+
+    LOG_INFO("CMD_RX char=%c opcode=0x%02x target=%d", ch, operation_num, LIGHTCTL_CHANNEL);
+    write_command_to_channel(operation_num, LIGHTCTL_CHANNEL);
+}
+
+static void reset_vehicle_line(void) {
+    g_vehicle_line_len = 0;
+    g_vehicle_line[0] = '\0';
+}
+
+static void flush_vehicle_line(void) {
+    light_vehicle_state_request_t request;
+
+    g_vehicle_line[g_vehicle_line_len] = '\0';
+    if (!light_vehicle_state_parse_line(g_vehicle_line, &request)) {
+        LOG_ERROR("invalid vehicle_state command: %s\n", g_vehicle_line);
+        reset_vehicle_line();
+        return;
     }
 
-    LOG_INFO("CMD_RX char=%c opcode=0x%02x target=%d", ch, operation_num, target_channel);
-    write_command_to_channel(operation_num, target_channel);
+    LOG_INFO("CMD_VEHICLE line=%s field=%u value=%u target=%d",
+             g_vehicle_line,
+             (unsigned int)request.field,
+             (unsigned int)request.value,
+             VEHICLE_STATE_CHANNEL);
+    write_vehicle_request(request);
+    reset_vehicle_line();
+}
+
+static bool buffer_vehicle_line_char(int ch) {
+    if (g_vehicle_line_len + 1U >= LIGHT_COMMAND_LINE_MAX) {
+        LOG_ERROR("vehicle_state command too long\n");
+        reset_vehicle_line();
+        return false;
+    }
+
+    g_vehicle_line[g_vehicle_line_len++] = (char)ch;
+    g_vehicle_line[g_vehicle_line_len] = '\0';
+    return true;
 }
 
 
@@ -262,9 +285,6 @@ void notified(microkit_channel channel) {
         // 1. 调用uart_get_char()获取键盘输入的字符
         int ch = uart_get_char();
     
-        // 2. 调用uart_put_char()打印获取到的字符
-        //uart_put_char(ch);
-    
         // 3. 调用uart_handle_irq()清除UART硬件的中断标志
         uart_handle_irq();
     
@@ -272,9 +292,23 @@ void notified(microkit_channel channel) {
         microkit_irq_ack(channel);
 
         
-        //写入输入缓冲区->CLIENT
-        //输入的字符应该只有一个
-        send_command(ch);
+        if (ch == '\r') {
+            if (g_vehicle_line_len != 0U) {
+                flush_vehicle_line();
+            }
+            return;
+        }
+
+        if (g_vehicle_line_len == 0U) {
+            uint8_t op = LIGHT_UART_CMD_INVALID;
+
+            if (light_command_decode_char(ch, &op)) {
+                send_command(ch);
+                return;
+            }
+        }
+
+        buffer_vehicle_line_char(ch);
 
     }
     else{
