@@ -106,6 +106,24 @@ static void test_query_char_becomes_query_message(void) {
                 "query message should route to commandin snapshot path");
 }
 
+static void test_fault_clear_char_becomes_fault_clear_message(void) {
+    light_transport_parser_t parser;
+    light_transport_message_t message;
+    light_transport_feed_status_t status;
+
+    light_transport_parser_init(&parser);
+    status = light_transport_parser_feed_char(&parser, 'C', &message);
+
+    expect_true(status == LIGHT_TRANSPORT_FEED_MESSAGE_READY,
+                "fault clear char should produce a complete message");
+    expect_true(message.type == LIGHT_TRANSPORT_MSG_FAULT_CLEAR,
+                "fault clear char should map to fault clear message type");
+    expect_true(message.payload.fault_clear_scope == LIGHT_TRANSPORT_FAULT_CLEAR_ALL,
+                "fault clear char should default to clear-all scope");
+    expect_true(light_transport_route_for_message(message) == LIGHT_TRANSPORT_ROUTE_FAULT_MGMT,
+                "fault clear message should route to fault management");
+}
+
 static void test_invalid_input_is_rejected_safely(void) {
     light_transport_parser_t parser;
     light_transport_message_t message;
@@ -129,6 +147,7 @@ int main(void) {
     test_unfinished_input_is_not_submitted();
     test_fault_inject_char_becomes_fault_message();
     test_query_char_becomes_query_message();
+    test_fault_clear_char_becomes_fault_clear_message();
     test_invalid_input_is_rejected_safely();
 
     printf("light_transport tests passed\n");

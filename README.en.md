@@ -20,7 +20,7 @@ faultmg   -> lightctl
 - `scheduler`: updates allow-flags in shared memory and applies the current rule checks before notifying `lightctl`.
 - `lightctl`: converts allowed states into concrete GPIO actions and reports faults when checks fail.
 - `gpio`: maps GPIO/timer regions and performs the actual pin-level operations.
-- `faultmg`: receives fault notifications, counts them, and prints fault logs.
+- `faultmg`: receives fault notifications, owns the fault lifecycle, and publishes the current fault mode.
 
 ## Build Requirements
 
@@ -53,6 +53,8 @@ Recommended targets:
 - `make debug`
 - `make release`
 - `make smoke`
+- `make test-transport`
+- `make test-snapshot`
 - `make test-fault-transport`
 - `make help`
 
@@ -160,8 +162,15 @@ The current command mapping is:
 | Position light | `P` | `p` | `0x41` / `0x40` |
 | Brake light | `B` | `b` | `0x51` / `0x50` |
 
+Fault-management helpers:
+
+- `!`: inject `LIGHT_ERR_MODE_CONFLICT`
+- `#`: inject `LIGHT_ERR_HW_STATE_ERR`
+- `C`: clear active faults and, while already recovering, advance one recovery observation tick
+- `?`: print a unified `STATUS_SNAPSHOT` including fault mode, lifecycle phase, recovery progress, and fault statistics
+
 ## Notes
 
 - `build/` is a build-output directory, not source code.
 - `vmm/` exists in the repository, but it is not part of the default `part1` to `part5` build path.
-- The current fault-management implementation is limited to error counting and logging; it does not implement a full recovery flow.
+- The current lifecycle v1 is intentionally minimal: it supports clear, a recovery observation window, hysteresis, and one-step-at-a-time fallback, but not real time-based recovery or a full fault taxonomy.

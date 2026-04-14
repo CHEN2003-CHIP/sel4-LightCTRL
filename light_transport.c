@@ -55,6 +55,18 @@ static light_transport_message_t make_query_message(void) {
     return message;
 }
 
+static light_transport_message_t make_fault_clear_message(uint8_t scope) {
+    light_transport_message_t message;
+
+    message.version = LIGHT_TRANSPORT_VERSION;
+    message.type = LIGHT_TRANSPORT_MSG_FAULT_CLEAR;
+    message.len = sizeof(message.payload.fault_clear_scope);
+    message.flags = 0;
+    message.payload.fault_clear_scope = scope;
+
+    return message;
+}
+
 void light_transport_parser_init(light_transport_parser_t *parser) {
     parser_reset(parser);
 }
@@ -92,6 +104,10 @@ light_transport_feed_status_t light_transport_parser_feed_char(light_transport_p
             *message = make_query_message();
             return LIGHT_TRANSPORT_FEED_MESSAGE_READY;
         }
+        if (ch == 'C') {
+            *message = make_fault_clear_message(LIGHT_TRANSPORT_FAULT_CLEAR_ALL);
+            return LIGHT_TRANSPORT_FEED_MESSAGE_READY;
+        }
     }
 
     if (parser->line_len == 0U && light_command_decode_char(ch, &light_cmd)) {
@@ -119,6 +135,8 @@ light_transport_route_t light_transport_route_for_message(light_transport_messag
             return LIGHT_TRANSPORT_ROUTE_FAULT_MGMT;
         case LIGHT_TRANSPORT_MSG_QUERY:
             return LIGHT_TRANSPORT_ROUTE_COMMANDIN;
+        case LIGHT_TRANSPORT_MSG_FAULT_CLEAR:
+            return LIGHT_TRANSPORT_ROUTE_FAULT_MGMT;
         case LIGHT_TRANSPORT_MSG_INVALID:
         default:
             return LIGHT_TRANSPORT_ROUTE_NONE;

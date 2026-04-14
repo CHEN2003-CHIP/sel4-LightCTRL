@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define LIGHT_SHARED_STATE_LAYOUT_V2  2U
+#define LIGHT_SHARED_STATE_LAYOUT_V3  3U
 
 #define LIGHT_CMD_LOW_BEAM_OFF    0x00
 #define LIGHT_CMD_LOW_BEAM_ON     0x01
@@ -77,6 +77,9 @@ typedef struct {
     volatile uint8_t beam_switch_pos;
     volatile uint16_t vehicle_speed;
     volatile uint8_t fault_mode;
+    volatile uint8_t fault_lifecycle;
+    volatile uint8_t fault_recovery_ticks;
+    volatile uint8_t active_fault_mask;
     volatile uint8_t last_fault_code;
     volatile uint32_t total_fault_count;
     volatile light_operator_request_t operator_request;

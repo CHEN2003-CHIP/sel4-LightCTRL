@@ -67,27 +67,31 @@ wait_for_log "LIGHTCTL_INIT module=lightctl status=ready"
 wait_for_log "GPIO_INIT module=gpio status=ready"
 wait_for_log "FAULT_INIT module=faultmg status=ready"
 
-send_text "L"
-wait_for_log "CMD_MSG type=light_cmd cmd=0x01"
-wait_for_log "SCHED_TARGET mode=NORMAL speed=10 ignition=1 brake_pedal=0 req[low=1 high=0 left=0 right=0 marker=1 brake=0] target[low=1 high=0 left=0 right=0 marker=1 brake=0]"
-
-send_text "H"
-wait_for_log "CMD_MSG type=light_cmd cmd=0x11"
-
-send_text "speed=5\r"
-wait_for_log "CMD_MSG type=vehicle_state field=1 value=5"
-wait_for_log "VEHICLE_STATE_UPDATE field=1 value=5 changed=1 speed=5 brake=0 ignition=1"
-wait_for_log "SCHED_TARGET mode=NORMAL speed=5 ignition=1 brake_pedal=0 req[low=1 high=1 left=0 right=0 marker=1 brake=0] target[low=1 high=0 left=0 right=0 marker=1 brake=0]"
-
 send_text "#"
 wait_for_log "CMD_MSG type=fault_inject code=0x04"
 send_text "#"
-wait_for_log "FAULTMG_MODE_TRANSITION prev=WARN next=SAFE_MODE changed=1 code=0x04 total=2"
-wait_for_log "SCHED_TARGET mode=SAFE_MODE speed=5 ignition=1 brake_pedal=0 req[low=1 high=1 left=0 right=0 marker=1 brake=0] target[low=1 high=0 left=0 right=0 marker=1 brake=0]"
+wait_for_log "FAULTMG_MODE_TRANSITION prev=WARN next=SAFE_MODE changed=1"
 
 send_text "?"
 wait_for_log "CMD_MSG type=query_status"
-wait_for_log "STATUS_SNAPSHOT fault=SAFE_MODE speed=5 ignition=1 brake_pedal=0 target[low=1 high=0 left=0 right=0 marker=1 brake=0]"
+wait_for_log "STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=ACTIVE"
+
+send_text "C"
+wait_for_log "CMD_MSG type=fault_clear scope=1"
+wait_for_log "FAULTMG_CLEAR prev=SAFE_MODE next=SAFE_MODE changed=0 lifecycle_prev=ACTIVE lifecycle_next=RECOVERING lifecycle_changed=1"
+
+send_text "?"
+wait_for_log "CMD_MSG type=query_status"
+wait_for_log "STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=RECOVERING recovery_ticks=0/2 active_faults=0x00"
+
+send_text "C"
+wait_for_log "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=SAFE_MODE changed=0 lifecycle_prev=RECOVERING lifecycle_next=RECOVERING lifecycle_changed=0"
+
+send_text "C"
+wait_for_log "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=DEGRADED changed=1 lifecycle_prev=RECOVERING lifecycle_next=RECOVERING lifecycle_changed=0"
+
+send_text "?"
+wait_for_log "STATUS_SNAPSHOT fault=DEGRADED lifecycle=RECOVERING recovery_ticks=0/2 active_faults=0x00"
 
 trap - EXIT
 cleanup

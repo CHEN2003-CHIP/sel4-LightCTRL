@@ -67,8 +67,11 @@ static void recompute_target_output(void) {
 void init(void) {
     g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
 
-    g_shmem->layout_version = LIGHT_SHARED_STATE_LAYOUT_V2;
+    g_shmem->layout_version = LIGHT_SHARED_STATE_LAYOUT_V3;
     g_shmem->uart_cmd = LIGHT_UART_CMD_INVALID;
+    g_shmem->fault_lifecycle = (uint8_t)LIGHT_FAULT_LIFECYCLE_STABLE;
+    g_shmem->fault_recovery_ticks = 0U;
+    g_shmem->active_fault_mask = 0U;
     g_shmem->last_fault_code = 0U;
     g_shmem->total_fault_count = 0U;
     g_shmem->operator_request = light_operator_request_init();

@@ -18,6 +18,9 @@ static void test_snapshot_capture_reads_shared_state_consistently(void) {
 
     memset(&shmem, 0, sizeof(shmem));
     shmem.fault_mode = LIGHT_FAULT_MODE_DEGRADED;
+    shmem.fault_lifecycle = LIGHT_FAULT_LIFECYCLE_RECOVERING;
+    shmem.fault_recovery_ticks = 1U;
+    shmem.active_fault_mask = 0U;
     shmem.vehicle_state.speed_kph = 88U;
     shmem.vehicle_state.ignition_on = 1U;
     shmem.vehicle_state.brake_pedal = 0U;
@@ -31,6 +34,10 @@ static void test_snapshot_capture_reads_shared_state_consistently(void) {
 
     expect_true(snapshot.fault_mode == LIGHT_FAULT_MODE_DEGRADED,
                 "snapshot should preserve fault mode");
+    expect_true(snapshot.lifecycle == LIGHT_FAULT_LIFECYCLE_RECOVERING,
+                "snapshot should preserve lifecycle");
+    expect_true(snapshot.recovery_ticks == 1U,
+                "snapshot should preserve recovery ticks");
     expect_true(snapshot.vehicle_state.speed_kph == 88U,
                 "snapshot should preserve speed");
     expect_true(snapshot.target_output.low_beam_on == 1U,
@@ -46,6 +53,8 @@ static void test_snapshot_format_emits_unified_status_line(void) {
 
     memset(&snapshot, 0, sizeof(snapshot));
     snapshot.fault_mode = LIGHT_FAULT_MODE_SAFE_MODE;
+    snapshot.lifecycle = LIGHT_FAULT_LIFECYCLE_RECOVERING;
+    snapshot.recovery_ticks = 1U;
     snapshot.vehicle_state.speed_kph = 5U;
     snapshot.vehicle_state.ignition_on = 1U;
     snapshot.vehicle_state.brake_pedal = 1U;
@@ -61,6 +70,10 @@ static void test_snapshot_format_emits_unified_status_line(void) {
     expect_true(len > 0, "snapshot formatter should produce output");
     expect_true(strstr(buf, "STATUS_SNAPSHOT fault=SAFE_MODE") != NULL,
                 "snapshot formatter should include fault mode");
+    expect_true(strstr(buf, "lifecycle=RECOVERING") != NULL,
+                "snapshot formatter should include lifecycle");
+    expect_true(strstr(buf, "recovery_ticks=1/2") != NULL,
+                "snapshot formatter should include recovery progress");
     expect_true(strstr(buf, "speed=5") != NULL,
                 "snapshot formatter should include vehicle speed");
     expect_true(strstr(buf, "target[low=1 high=0 left=0 right=0 marker=1 brake=1]") != NULL,

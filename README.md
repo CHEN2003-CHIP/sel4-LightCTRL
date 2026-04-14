@@ -1,264 +1,177 @@
 # LightDemo
 
-基于 seL4 Microkit 的车灯控制演示工程。项目通过多个保护域协作，演示 UART 输入解析、规则调度、灯光控制、GPIO 驱动和故障记录之间的通信关系，默认目标板为 `qemu_virt_aarch64`，主要运行场景是 QEMU 下的功能验证。
-
-## 项目简介
-
-当前仓库实现的是一个分组件的车灯控制链路：
-
-- `commandin` 从 UART 接收键盘输入，并把字符命令编码为统一的控制码。
-- `scheduler` 根据共享状态更新允许执行的灯光集合，承担规则裁决职责。
-- `lightctl` 根据调度结果触发具体灯光动作，并维护自身的状态一致性检查。
-- `gpio` 直接访问 GPIO 和定时器映射，执行实际引脚电平控制。
-- `faultmg` 接收错误上报，记录和聚合当前实现中的故障信息。
-
-当前 `Makefile` 已整理为项目级构建入口，同时保留 `part1` 到 `part5` 作为 legacy 兼容目标，其中 `part5` 对应当前主线的完整组合。
-
-## 仓库结构
-
 ```text
-lightdemo/
-├── build/              # 当前仓库内保留的构建输出目录
-├── include/            # 公共头文件和轻量工具实现
-├── vmm/                # 预留/实验性 VMM 相关代码，当前主线未接入默认构建
-├── commandin.c         # UART 输入与命令编码
-├── faultmg.c           # 错误接收与记录
-├── gpio.c              # GPIO / 定时器侧硬件控制
-├── light.system        # Microkit 系统描述
-├── lightctl.c          # 灯光控制与状态协调
-├── scheduler.c         # 规则调度与允许集更新
-├── Makefile            # 构建入口
-├── README.md
-└── README.en.md
+        _____________====_____________
+     .-'/  _  _  _  _    _  _  _  _  \'-.
+   .'__/__/ \/ \/ \/ \__/ \/ \/ \/ \__\_'.
+  /____  seL4 Microkit Automotive Light Control  ____\
+  \____\__/\__/\__/\__/__/\__/\__/\__/____/
+      '-._______________________________,-'
 ```
 
-说明：
+一个基于 seL4 + Microkit 的汽车车灯控制演示工程。
 
-- `build/` 是构建输出目录，不是源码的一部分。
-- `vmm/` 目录当前未纳入默认的 `part1` 到 `part5` 构建链路；相关规则在 `Makefile` 中也处于注释状态。
+它不是单纯的“按键开灯”小实验，而是把一条更像工程项目的链路放在同一个仓库里：
 
-## 架构说明
+- UART 输入
+- 规则调度
+- 执行控制
+- GPIO 输出
+- fault management
+- host-side test
+- QEMU 端到端验证
 
-### 组件职责
+如果你刚接触 seL4 / Microkit，这个仓库适合你拿来理解“多保护域协作的最小嵌入式系统”长什么样。
 
-#### `commandin`
+如果你已经写过一些嵌入式代码，这个仓库适合你拿来演进“tutorial demo -> engineering-grade project”的过程。
 
-- 映射 UART 设备寄存器并处理中断。
-- 接收键盘字符，如 `L`、`l`、`H`、`h`、`Z`、`z`、`Y`、`y`、`P`、`p`、`B`、`b`。
-- 将字符转换为统一的单字节控制码，写入输入缓冲区后通知下游。
+## 项目亮点
 
-#### `scheduler`
+- 用 `qemu_virt_aarch64` 跑完整的 Microkit 系统，不依赖真实板卡也能走通主链路。
+- 把 `commandin`、`scheduler`、`lightctl`、`gpio`、`faultmg` 拆成独立保护域，结构清晰。
+- 故障管理不是只会升级的计数器，当前已具备 lifecycle v1：`clear`、观察窗口、逐级回退、anti-flap。
+- 同时保留 host-side 单元测试和最小串口 E2E，便于新手理解，也便于后续做持续演进。
 
-- 从输入缓冲区读取控制码。
-- 维护共享状态中的 `allow_flags` 等字段。
-- 根据当前实现中的规则做准入判断，例如近光/远光、转向/制动之间的互锁关系。
-- 当允许状态发生变化时，通知 `lightctl` 执行同步。
+## 这是什么
 
-#### `lightctl`
-
-- 读取 `scheduler` 更新后的共享状态。
-- 将“允许执行的灯光状态”转换成具体 GPIO 操作通知。
-- 跟踪本地最近一次灯光状态，避免重复下发。
-- 在检测到速度限制、模式冲突或非法通知时，只通过消息寄存器向 `faultmg` 上报 fault event / 错误码。
-- 缓存最近一次由 `faultmg` 下发的 fault mode，并只把该缓存作为运行时安全约束输入。
-
-#### `gpio`
-
-- 映射 GPIO MMIO 区域和定时器区域。
-- 初始化灯光对应的输出引脚。
-- 根据来自 `lightctl` 的通道号执行开灯/关灯操作。
-- 接收 `faultmg` 广播的当前 fault mode，用于保持故障模式在域间的一致观察。
-- 当前源码中包含定时器初始化和部分扩展性预留，但主线行为仍以各灯光引脚电平控制为主。
-
-#### `faultmg`
-
-- 接收 `lightctl` 发出的错误通知。
-- 读取错误码并累计错误次数。
-- 作为 fault mode 的唯一 owner，根据错误码和计数裁决 `NORMAL / WARN / DEGRADED / SAFE_MODE`。
-- 通过现有通道把当前 fault mode 广播回 `lightctl` 和 `gpio`。
-- 输出当前实现中的故障日志；当前仍未实现自动恢复到更低 fault mode 的流程。
-
-### 系统拓扑
-
-当前 `light.system` 对应的数据流如下：
+当前主线实现的是一条完整车灯控制数据流：
 
 ```text
 commandin -> scheduler -> lightctl -> gpio
 lightctl  -> faultmg
 faultmg   -> lightctl
+faultmg   -> gpio
+faultmg   -> scheduler
+commandin -> faultmg   (fault inject / clear)
+commandin -> vehicle_state
 ```
 
-补充说明：
+你可以把它理解成一个“缩小版汽车电子控制系统”：
 
-- `scheduler` 与 `lightctl` 共享一块状态内存，用于传递允许标志和部分运行状态。
-- `commandin` 使用 UART IRQ 作为输入入口。
-- `lightctl` 与 `gpio` 之间不是单一通道，而是按灯光操作拆成多个通道，例如左右转向、制动灯、近光灯、远光灯、示廓灯的开关操作分别对应不同 channel ID。
+- `commandin` 像输入网关
+- `scheduler` 像规则裁决层
+- `lightctl` 像执行协调层
+- `gpio` 像硬件驱动层
+- `faultmg` 像故障 owner
 
-## 环境要求
+## 适合谁
 
-根据当前 `Makefile`，构建依赖以下环境：
+- 想学 seL4 / Microkit，但不想一上来就读抽象 demo 的初学者
+- 想看一个 C 语言嵌入式项目如何逐步补测试、补结构、补 fault lifecycle 的开发者
+- 想找一个可以继续做 PR、扩功能、加文档、补验证的开源练手机会的人
 
-- Microkit SDK 2.0.1
-- AArch64 交叉编译工具链，`Makefile` 会按以下顺序自动探测：
-  - `aarch64-linux-gnu-gcc`
-  - `aarch64-unknown-linux-gnu-gcc`
-  - `aarch64-none-elf-gcc`
-- `qemu-system-aarch64`，用于 `make run`
+## 快速上手
 
-默认 SDK 路径为：
+### 1. 环境要求
+
+- Microkit SDK `2.0.1`
+- AArch64 交叉编译器
+  `Makefile` 会自动探测：
+  `aarch64-linux-gnu-gcc`
+  `aarch64-unknown-linux-gnu-gcc`
+  `aarch64-none-elf-gcc`
+- `qemu-system-aarch64`
+
+默认 SDK 路径是：
 
 ```text
 ../microkit-sdk-2.0.1
 ```
 
-如果 SDK 不在该位置，需要在执行 `make` 时显式传入 `MICROKIT_SDK`。
-
-## 构建步骤
-
-### 1. 准备 Microkit SDK
-
-将 Microkit SDK 2.0.1 解压到仓库的同级目录，形成类似结构：
-
-```text
-<parent>/
-├── lightdemo/
-└── microkit-sdk-2.0.1/
-```
-
-如果目录关系不同，也可以在命令中指定：
+如果你的 SDK 不在这个位置：
 
 ```bash
 make build MICROKIT_SDK=/path/to/microkit-sdk-2.0.1
 ```
 
-### 2. 选择构建目标
-
-推荐使用新的项目级入口：
-
-- `make build`：构建当前完整镜像，默认等价于 legacy `part5`
-- `make run`：沿用当前 `qemu_virt_aarch64` 的 QEMU 启动流程
-- `make clean`：清理当前已知构建产物
-- `make debug`：以 `MICROKIT_CONFIG=debug` 构建完整镜像
-- `make release`：以 `MICROKIT_CONFIG=release` 构建完整镜像
-- `make smoke`：执行最小自动化 smoke test
-- `make test-integration-fault`：执行带测试 hook 的 QEMU fault injection 集成测试
-- `make test-policy`：执行宿主机上的规则层单元测试
-- `make test-runtime`：执行宿主机上的运行时安全单元测试
-- `make test-fault`：执行宿主机上的故障模式单元测试
-- `make test-fault-transport`：执行宿主机上的 fault mode 共享字节传播测试
-- `make help`：显示最终 target 列表和常用覆盖参数
-
-推荐使用：
+### 2. 一条命令构建
 
 ```bash
 make build
 ```
 
-构建时会使用：
-
-- `BOARD := qemu_virt_aarch64`
-- 默认 `MICROKIT_CONFIG := debug`
-- 构建输出目录：`build/`
-- 默认镜像：`build/loader.img`
-- 报告文件：`build/report.txt`
-
-### 3. Legacy 分阶段目标
-
-教程阶段目标仍保留，但已标注为 legacy 兼容别名：
-
-- `make part1`：执行完整构建，并导出 `build/demo_part_one.img`
-- `make part2`：执行完整构建，并导出 `build/demo_part_two.img`
-- `make part3`：执行完整构建，并导出 `build/demo_part_three.img`
-- `make part4`：执行完整构建，并导出 `build/demo_part_four.img`
-- `make part5`：等价于 `make build`
-- `make legacy`：顺序构建全部 legacy 阶段镜像
-
-说明：
-
-- 当前仓库的 `light.system` 需要完整系统镜像，因此 `part1` 到 `part4` 作为兼容入口统一复用完整构建结果，再按旧命名导出镜像文件。
-- 主线镜像生成流程保持不变，`make build` 和 `make run` 仍以 `build/loader.img` 为入口。
-
-### 4. 构建产物
-
-根据当前 `Makefile`，主要产物包括：
-
-- 各保护域 ELF：`build/*.elf`
-- 镜像输出：`build/loader.img`
-- legacy 阶段镜像：`build/demo_part_one.img` 到 `build/demo_part_five.img`
-- Microkit 报告：`build/report.txt`
-
-## 运行步骤
-
-完成构建后，可通过以下命令启动 QEMU：
+### 3. 运行
 
 ```bash
 make run
 ```
 
-`run` 目标会继续加载 `build/loader.img`，并以 `qemu-system-aarch64` 的 `virt` 机器模型运行，CPU 设为 `cortex-a53`，串口输出通过 `mon:stdio` 暴露到当前终端。
-
-## Smoke Test
-
-仓库现在提供一个最小自动化 smoke test：
+### 4. 最小验证
 
 ```bash
 make smoke
 ```
 
-该测试会：
-
-- 构建当前完整镜像
-- 启动 QEMU 并等待 5 个核心模块初始化日志
-- 发送 `L`、`H`、`B`
-- 基于固定摘要日志断言 `scheduler -> lightctl -> gpio` 的关键状态传播链路
-
-## Fault Injection 集成测试
-
-仓库现在还提供一条最小侵入的 fault injection 集成验证：
-
-```bash
-make test-integration-fault
-```
-
-该测试会在单独的 `build-test-hooks/` 构建目录中启用测试 hook，并在 QEMU 中验证：
-
-- `fault event -> faultmg mode transition -> lightctl immediate sync -> gpio output switch`
-- `NORMAL -> DEGRADED`
-- `NORMAL -> SAFE_MODE`
-- mode 更新后无需等待下一次常规 `SCHED_APPLY` 即可生效
-
-## Debug / Release 说明
-
-- `debug` 和 `release` 通过切换 `MICROKIT_CONFIG`，选择 Microkit SDK 中 `qemu_virt_aarch64/debug` 或 `qemu_virt_aarch64/release` 目录下的板级输入。
-- 在当前仓库中，`release` 除了切换 Microkit SDK 配置外，也会使用 `-O2 -DNDEBUG -g0`，更接近发布构建。
-- 本地 Microkit SDK 2.0.1 已包含 `debug` 和 `release` 两套目录，因此 `make release` 当前可用。
-
-## 本地验证与 CI
-
-推荐的本地验证顺序：
+如果你只想先确认 host-side 逻辑没坏：
 
 ```bash
 make test-policy
 make test-runtime
 make test-fault
-make test-fault-transport
-make smoke
-make test-integration-fault
+make test-transport
+make test-snapshot
 ```
 
-仓库还包含 GitHub Actions CI 配置：
+## 你能看到什么
 
-- 默认运行 host validation：`make test-policy`、`make test-fault`、`make test-fault-transport`
-- 当 CI 环境提供 `MICROKIT_SDK_URL` 时，额外运行 QEMU validation：`make smoke`
-- 当 CI 环境未提供 `MICROKIT_SDK_URL` 时，会在日志和 job summary 中明确说明 QEMU validation 被跳过的原因
+这个仓库重点不在“UI 好看”，而在“控制链路完整、边界清晰、可验证”。
 
-如果本地或 CI 缺少 Microkit SDK / QEMU，则宿主机单元测试仍可单独执行。
+你可以从这里看到：
 
-更具体的贡献与验证说明见 [CONTRIBUTING.md](/home/chen/microkit_tutorial/lightCtlTest/CONTRIBUTING.md)。
+- Microkit 保护域之间怎样通信
+- 为什么 `faultmg` 必须是 fault mode 的唯一 owner
+- 为什么只靠 counter 不够，需要 lifecycle state
+- 如何用 QEMU + shell script 做最小 E2E
+- 如何把 tutorial 风格代码逐步整理成可维护项目
 
-## 使用方式
+## 操作指南
 
-启动后，可通过串口输入以下字符命令控制灯光：
+这一部分保留为日常使用入口。
+
+### 推荐目标
+
+- `make build`
+- `make run`
+- `make clean`
+- `make debug`
+- `make release`
+- `make smoke`
+- `make test-policy`
+- `make test-runtime`
+- `make test-fault`
+- `make test-fault-transport`
+- `make test-transport`
+- `make test-snapshot`
+- `make test-integration-fault`
+- `make test-serial-e2e`
+- `make help`
+
+### 默认构建设置
+
+- `BOARD := qemu_virt_aarch64`
+- `MICROKIT_CONFIG := debug`
+- 输出镜像：`build/loader.img`
+- 报告文件：`build/report.txt`
+
+### Legacy 兼容目标
+
+仓库仍保留教程阶段目标：
+
+- `make part1`
+- `make part2`
+- `make part3`
+- `make part4`
+- `make part5`
+- `make legacy`
+
+说明：
+
+- 当前 `light.system` 已经描述完整系统，所以 `part1` 到 `part4` 只是兼容入口。
+- 当前主线完整构建等价于 `make part5`。
+
+## 串口输入说明
+
+### 灯光控制
 
 | 功能 | 打开 | 关闭 | 控制码 |
 | --- | --- | --- | --- |
@@ -269,41 +182,153 @@ make test-integration-fault
 | 示廓灯 | `P` | `p` | `0x41` / `0x40` |
 | 制动灯 | `B` | `b` | `0x51` / `0x50` |
 
-这些字符首先由 `commandin` 编码，再经 `scheduler` 和 `lightctl` 逐级处理，最终由 `gpio` 执行对应硬件操作。
+### fault lifecycle 调试
 
-## 状态机与故障模式
+| 功能 | 输入 |
+| --- | --- |
+| 注入 `LIGHT_ERR_MODE_CONFLICT` | `!` |
+| 注入 `LIGHT_ERR_HW_STATE_ERR` | `#` |
+| clear 当前 active faults / 推进恢复观察 tick | `C` |
+| 输出统一状态快照 | `?` |
 
-- 规则层 `light_policy` 负责把命令转换为允许标志和目标灯态。
-- 对于光束目标态，当前实现中 `HIGH_BEAM_ON` 在规则层会覆盖低光目标态，因此 `H` 会向 `lightctl` 和 `gpio` 传递 `high_beam_on`。
-- 运行时安全层 `light_runtime_guard` 负责基于速度、执行历史和当前 fault mode 拒绝高风险动作。
-- fault mode 的所有权当前收敛在 `faultmg`：`faultmg` 负责根据错误码和计数推导 `NORMAL / WARN / DEGRADED / SAFE_MODE`，再通过已有通道把当前 mode 广播给其他域。
-- `lightctl` 不再维护独立的 fault mode 状态机，只缓存 `faultmg` 下发的当前 mode，并据此在最终输出路径上裁剪目标灯态。
-- `gpio` 当前不参与 fault mode 裁决，但会接收 `faultmg` 的广播，用于保持域间对当前模式的统一观察。
+`STATUS_SNAPSHOT` 会输出：
 
-### Fault Mode 输出策略
+- 当前 `fault mode`
+- 当前 `lifecycle`
+- 恢复窗口进度 `recovery_ticks`
+- 当前 active fault 位图
+- 当前 target output 和 fault 统计
 
-- `NORMAL`：不裁剪目标输出，按规则层和运行时保护的结果执行。
-- `WARN`：当前保持与 `NORMAL` 一致，不额外裁剪最终输出，只保留告警与计数。
-- `DEGRADED`：禁止远光输出；强制近光和示廓灯开启；保留转向和制动灯。
-- `SAFE_MODE`：禁止远光输出；强制近光和示廓灯开启；保留转向和制动灯。
+## 目录结构
 
-| Fault Mode | 制动灯 | 转向灯 | 近光灯 | 远光灯 | 示廓灯 | 最低照明 |
-| --- | --- | --- | --- | --- | --- | --- |
-| `NORMAL` | 按请求透传 | 按请求透传 | 按请求透传 | 按请求透传 | 按请求透传 | 不强制 |
-| `WARN` | 按请求透传 | 按请求透传 | 按请求透传 | 按请求透传 | 按请求透传 | 不强制 |
-| `DEGRADED` | 按请求透传 | 按请求透传 | 强制开启 | 强制关闭 | 强制开启 | 强制保留近光与示廓灯 |
-| `SAFE_MODE` | 按请求透传 | 按请求透传 | 强制开启 | 强制关闭 | 强制开启 | 强制保留近光与示廓灯 |
+```text
+lightdemo/
+├── build/              # 构建输出目录
+├── include/            # 公共头文件
+├── commandin.c         # UART 输入、parser、dispatch
+├── scheduler.c         # 规则裁决，生成 target_output
+├── lightctl.c          # 执行协调层
+├── gpio.c              # GPIO / 定时器侧硬件操作
+├── faultmg.c           # fault lifecycle owner
+├── vehicle_state.c     # 车辆状态更新
+├── light.system        # Microkit 系统描述
+├── scripts/            # smoke / integration / serial E2E 脚本
+├── tests/              # host-side 测试
+├── Makefile            # 构建入口
+├── README.md
+└── README.en.md
+```
 
-## 已知限制与说明
+## 核心组件一眼看懂
 
-- 本仓库当前以源码与构建定义为准；现有注释中存在乱码和历史表述，README 已尽量按照实际实现重新归纳，但不对源码注释本身做修复。
-- 当前环境下若缺少 `make`、交叉编译器、Microkit SDK 或 QEMU，则无法直接完成构建与运行。
-- 当前 fault mode 只支持升级，不支持自动恢复到更低模式。
-- `gpio.c` 中包含部分定时器/扩展预留代码，但这些内容并未改变主线构建说明。
-- 仓库内已存在 `build/` 产物；本次文档清理不会删除或重建这些文件。
+### `commandin`
+
+- 负责 UART 接收
+- 负责字符解析
+- 负责统一 transport message 派发
+- 不拥有 fault lifecycle
+
+### `scheduler`
+
+- 消费输入命令和车辆状态
+- 结合当前 `fault_mode` 计算 `target_output`
+- 只消费 fault mode，不负责恢复逻辑
+
+### `lightctl`
+
+- 根据 `target_output` 生成实际动作
+- 做运行时保护检查
+- 在需要时向 `faultmg` 上报 fault
+
+### `gpio`
+
+- 负责最终硬件输出
+- 同步观察当前 fault mode
+
+### `faultmg`
+
+- fault mode 的唯一 owner
+- 管理 `ACTIVE / RECOVERING / STABLE`
+- 支持 inject、clear、恢复窗口、逐级回退
+- 负责把 mode 广播给其他域
+
+## fault lifecycle v1
+
+当前仓库已经不是“只会升级的 fault counter”。
+
+目前的最小闭环行为是：
+
+1. 注入或上报 fault 后，系统按当前规则升级到 `WARN / DEGRADED / SAFE_MODE`
+2. `clear` 后不立刻恢复，而是进入 `RECOVERING`
+3. 观察窗口满足后，每次只下降一级
+4. 恢复过程中如果再次 fault，恢复进度清零并立即打断恢复
+
+这套设计的目的不是一次做到复杂终局，而是先让仓库具备：
+
+- 可解释
+- 可测试
+- 能闭环
+- 能继续演进
+
+## 验证方式
+
+### Host-side 测试
+
+```bash
+make test-policy
+make test-runtime
+make test-fault
+make test-fault-transport
+make test-transport
+make test-snapshot
+```
+
+### QEMU 验证
+
+```bash
+make smoke
+make test-integration-fault
+make test-serial-e2e
+```
+
+验证重点包括：
+
+- 命令输入是否正确传播
+- `faultmg` 是否正确升级和广播 fault mode
+- clear 后是否进入恢复观察期
+- 是否只能逐级回退，而不是瞬间回到 `NORMAL`
+- query/snapshot 是否能观察 lifecycle 状态
+
+## 从哪里开始读代码
+
+如果你是第一次看这个仓库，建议按这个顺序读：
+
+1. [light.system](/home/chen/microkit_tutorial/lightCtlTest/light.system)
+2. [commandin.c](/home/chen/microkit_tutorial/lightCtlTest/commandin.c)
+3. [scheduler.c](/home/chen/microkit_tutorial/lightCtlTest/scheduler.c)
+4. [lightctl.c](/home/chen/microkit_tutorial/lightCtlTest/lightctl.c)
+5. [faultmg.c](/home/chen/microkit_tutorial/lightCtlTest/faultmg.c)
+6. [light_fault_mode.c](/home/chen/microkit_tutorial/lightCtlTest/light_fault_mode.c)
+7. [tests/test_light_fault_mode.c](/home/chen/microkit_tutorial/lightCtlTest/tests/test_light_fault_mode.c)
+8. [scripts/serial_e2e_test.sh](/home/chen/microkit_tutorial/lightCtlTest/scripts/serial_e2e_test.sh)
+
+## 为什么值得点个 Star
+
+如果你喜欢这类项目，一个 Star 对仓库很有帮助。这个仓库的价值在于它同时覆盖了几类内容：
+
+- seL4 / Microkit 入门友好
+- 嵌入式控制链路完整
+- fault lifecycle 有真实工程味道
+- 测试和脚本不是摆设，能实际跑
+- 很适合继续做小而清晰的 PR
+
+## 当前限制
+
+- 当前 lifecycle v1 仍是最小实现，还没有接入真实时间基准。
+- 还没有做更完整的 fault taxonomy。
+- 主目标仍然是把 tutorial demo 继续整理成工程化项目，而不是一次性堆很多 feature。
+- `vmm/` 目录仍未接入默认主线构建。
 
 ## 附图
-
-仓库中保留了架构示意图，可结合系统描述文件一起阅读：
 
 ![LightDemo architecture](imgimage.png)

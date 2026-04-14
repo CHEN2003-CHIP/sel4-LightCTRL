@@ -7,6 +7,9 @@
 
 typedef struct {
     uint8_t fault_mode;
+    uint8_t lifecycle;
+    uint8_t recovery_ticks;
+    uint8_t active_fault_mask;
     light_vehicle_state_t vehicle_state;
     light_target_output_t target_output;
     uint32_t allow_flags;

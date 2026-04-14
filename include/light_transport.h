@@ -14,6 +14,7 @@ typedef enum {
     LIGHT_TRANSPORT_MSG_VEHICLE_STATE_UPDATE = 2,
     LIGHT_TRANSPORT_MSG_FAULT_INJECT = 3,
     LIGHT_TRANSPORT_MSG_QUERY = 4,
+    LIGHT_TRANSPORT_MSG_FAULT_CLEAR = 5,
 } light_transport_msg_type_t;
 
 typedef enum {
@@ -41,8 +42,11 @@ typedef struct {
         light_vehicle_state_request_t vehicle_state_update;
         uint8_t fault_error_code;
         uint8_t query_id;
+        uint8_t fault_clear_scope;
     } payload;
 } light_transport_message_t;
+
+#define LIGHT_TRANSPORT_FAULT_CLEAR_ALL 1U
 
 typedef struct {
     char line_buf[LIGHT_COMMAND_LINE_MAX];

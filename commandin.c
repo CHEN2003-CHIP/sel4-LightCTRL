@@ -16,6 +16,7 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include "logger.h"
+#include "light_fault_mode.h"
 #include "light_protocol.h"
 #include "light_status_snapshot.h"
 #include "light_transport.h"
@@ -157,6 +158,33 @@ void uart_put_str(char *str) {
     }
 }
 
+static void uart_put_u32(uint32_t value) {
+    char digits[10];
+    size_t count = 0;
+
+    if (value == 0U) {
+        uart_put_char('0');
+        return;
+    }
+
+    while (value > 0U) {
+        digits[count++] = (char)('0' + (value % 10U));
+        value /= 10U;
+    }
+
+    while (count > 0U) {
+        uart_put_char(digits[--count]);
+    }
+}
+
+static void uart_put_hex8(uint8_t value) {
+    static const char hex_digits[] = "0123456789abcdef";
+
+    uart_put_str("0x");
+    uart_put_char(hex_digits[(value >> 4) & 0x0fU]);
+    uart_put_char(hex_digits[value & 0x0fU]);
+}
+
 /**
  * @brief 组件初始化入口函数
  * @details Microkit框架初始化阶段调用，完成UART初始化并打印启动日志
@@ -205,12 +233,40 @@ static void dispatch_transport_message(light_transport_message_t message) {
 }
 
 static void emit_status_snapshot(void) {
-    char line[256];
-    light_status_snapshot_t snapshot = light_status_snapshot_capture(g_shmem);
-
-    light_status_snapshot_format(line, sizeof(line), snapshot);
-    LOG_INFO("%s", line);
-    uart_put_str(line);
+    uart_put_str("STATUS_SNAPSHOT fault=");
+    uart_put_str((char *)light_fault_mode_name((fault_mode_t)g_shmem->fault_mode));
+    uart_put_str(" lifecycle=");
+    uart_put_str((char *)light_fault_lifecycle_name((light_fault_lifecycle_t)g_shmem->fault_lifecycle));
+    uart_put_str(" recovery_ticks=");
+    uart_put_u32(g_shmem->fault_recovery_ticks);
+    uart_put_char('/');
+    uart_put_u32(light_fault_recovery_window_ticks());
+    uart_put_str(" active_faults=");
+    uart_put_hex8(g_shmem->active_fault_mask);
+    uart_put_str(" speed=");
+    uart_put_u32(g_shmem->vehicle_state.speed_kph);
+    uart_put_str(" ignition=");
+    uart_put_u32(g_shmem->vehicle_state.ignition_on);
+    uart_put_str(" brake_pedal=");
+    uart_put_u32(g_shmem->vehicle_state.brake_pedal);
+    uart_put_str(" target[low=");
+    uart_put_u32(g_shmem->target_output.low_beam_on);
+    uart_put_str(" high=");
+    uart_put_u32(g_shmem->target_output.high_beam_on);
+    uart_put_str(" left=");
+    uart_put_u32(g_shmem->target_output.left_turn_on);
+    uart_put_str(" right=");
+    uart_put_u32(g_shmem->target_output.right_turn_on);
+    uart_put_str(" marker=");
+    uart_put_u32(g_shmem->target_output.marker_on);
+    uart_put_str(" brake=");
+    uart_put_u32(g_shmem->target_output.brake_on);
+    uart_put_str("] allow=");
+    uart_put_hex8((uint8_t)g_shmem->allow_flags);
+    uart_put_str(" last_fault=");
+    uart_put_hex8(g_shmem->last_fault_code);
+    uart_put_str(" total_faults=");
+    uart_put_u32(g_shmem->total_fault_count);
     uart_put_str("\r");
 }
 
@@ -257,6 +313,9 @@ void notified(microkit_channel channel) {
                 } else if (message.type == LIGHT_TRANSPORT_MSG_FAULT_INJECT) {
                     LOG_INFO("CMD_MSG type=fault_inject code=0x%02x",
                              (unsigned int)message.payload.fault_error_code);
+                } else if (message.type == LIGHT_TRANSPORT_MSG_FAULT_CLEAR) {
+                    LOG_INFO("CMD_MSG type=fault_clear scope=%u",
+                             (unsigned int)message.payload.fault_clear_scope);
                 } else if (message.type == LIGHT_TRANSPORT_MSG_QUERY) {
                     LOG_INFO("CMD_MSG type=query_status");
                 }

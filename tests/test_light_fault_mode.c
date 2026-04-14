@@ -84,6 +84,98 @@ static void test_fault_event_carries_current_owner_mode(void) {
                 "fault event should carry owner-selected mode");
 }
 
+static void test_clear_enters_recovering_without_immediate_recovery(void) {
+    light_fault_state_t state = light_fault_state_init();
+    fault_decision_t decision;
+
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    decision = light_fault_mode_clear_active(&state);
+
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_SAFE_MODE,
+                "clear should not immediately leave SAFE_MODE");
+    expect_true(state.lifecycle == LIGHT_FAULT_LIFECYCLE_RECOVERING,
+                "clear should enter RECOVERING");
+    expect_true(state.active_fault_mask == 0U,
+                "clear should remove active fault markers");
+    expect_true(state.recovery_ticks == 0U,
+                "clear should start a fresh recovery window");
+}
+
+static void test_recovery_window_steps_down_one_level_at_a_time(void) {
+    light_fault_state_t state = light_fault_state_init();
+    fault_decision_t decision;
+
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    (void)light_fault_mode_clear_active(&state);
+
+    decision = light_fault_mode_observe_recovery(&state);
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_SAFE_MODE,
+                "first healthy observation should keep SAFE_MODE");
+    expect_true(state.recovery_ticks == 1U,
+                "first healthy observation should advance recovery progress");
+
+    decision = light_fault_mode_observe_recovery(&state);
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_DEGRADED,
+                "recovery window should step down from SAFE_MODE to DEGRADED");
+    expect_true(state.lifecycle == LIGHT_FAULT_LIFECYCLE_RECOVERING,
+                "step-down should remain in RECOVERING until NORMAL");
+
+    (void)light_fault_mode_observe_recovery(&state);
+    decision = light_fault_mode_observe_recovery(&state);
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_WARN,
+                "second recovery window should step down to WARN");
+
+    (void)light_fault_mode_observe_recovery(&state);
+    decision = light_fault_mode_observe_recovery(&state);
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_NORMAL,
+                "final recovery window should step down to NORMAL");
+    expect_true(state.lifecycle == LIGHT_FAULT_LIFECYCLE_STABLE,
+                "NORMAL after recovery should return to STABLE");
+}
+
+static void test_fault_during_recovery_interrupts_step_down_progress(void) {
+    light_fault_state_t state = light_fault_state_init();
+    fault_decision_t decision;
+
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    (void)light_fault_mode_clear_active(&state);
+    (void)light_fault_mode_observe_recovery(&state);
+
+    decision = light_fault_mode_record_error(&state, LIGHT_ERR_SPEED_LIMIT);
+
+    expect_true(state.lifecycle == LIGHT_FAULT_LIFECYCLE_ACTIVE,
+                "new fault should interrupt recovery and return to ACTIVE");
+    expect_true(state.recovery_ticks == 0U,
+                "new fault should reset recovery progress");
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_SAFE_MODE,
+                "new fault during recovery should not immediately reduce severity");
+}
+
+static void test_repeated_clear_and_invalid_clear_keep_state_consistent(void) {
+    light_fault_state_t state = light_fault_state_init();
+    fault_decision_t decision;
+
+    decision = light_fault_mode_clear_active(&state);
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_NORMAL,
+                "clear without active faults should stay NORMAL");
+    expect_true(state.lifecycle == LIGHT_FAULT_LIFECYCLE_STABLE,
+                "clear without active faults should stay STABLE");
+
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_MODE_CONFLICT);
+    decision = light_fault_mode_clear_active(&state);
+    expect_true(state.lifecycle == LIGHT_FAULT_LIFECYCLE_RECOVERING,
+                "clear after active fault should enter RECOVERING");
+
+    decision = light_fault_mode_clear_active(&state);
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_WARN,
+                "repeated clear should not jump modes");
+    expect_true(state.recovery_ticks == 0U,
+                "repeated clear during recovery should not corrupt progress");
+}
+
 static light_target_state_t requested_target(bool brake,
                                              bool turn_left,
                                              bool turn_right,
@@ -251,6 +343,10 @@ int main(void) {
     test_repeated_hw_error_enters_safe_mode();
     test_non_conflict_error_resets_conflict_streak();
     test_fault_event_carries_current_owner_mode();
+    test_clear_enters_recovering_without_immediate_recovery();
+    test_recovery_window_steps_down_one_level_at_a_time();
+    test_fault_during_recovery_interrupts_step_down_progress();
+    test_repeated_clear_and_invalid_clear_keep_state_consistent();
     test_policy_matrix_matches_normal_mode_semantics();
     test_policy_matrix_matches_degraded_mode_semantics();
     test_policy_matrix_matches_safe_mode_semantics();
