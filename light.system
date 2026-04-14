@@ -57,7 +57,6 @@
             setvar_vaddr="shared_memory_base_vaddr" />
         <map mr="cmd_buffer_gp_lc" vaddr="0x5002000" perms="rw" setvar_vaddr="cmd_buffer"/>
         <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
-        <map mr="fault_mode_shared" vaddr="0x5003000" perms="rw" setvar_vaddr="fault_mode_shared_vaddr"/>
         <program_image path="lightctl.elf"/>     
     </protection_domain>
 
@@ -73,9 +72,17 @@
 
     <!-- FAULTMG模块 处理异常-->
     <protection_domain name="fault_mg" priority="210">
+        <map mr="shared_memory_for_scheduler" vaddr="0x4000000" perms="rw" cached="true"
+            setvar_vaddr="shared_memory_base_vaddr" />
         <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="test_input_buffer"/>
         <map mr="fault_mode_shared" vaddr="0x5003000" perms="rw" setvar_vaddr="fault_mode_shared_vaddr"/>
         <program_image path="faultmg.elf"/>  
+    </protection_domain>
+
+    <protection_domain name="vehicle_state" priority="245">
+        <map mr="shared_memory_for_scheduler" vaddr="0x4000000" perms="rw" cached="true"
+            setvar_vaddr="shared_memory_base_vaddr" />
+        <program_image path="vehicle_state.elf"/>
     </protection_domain>
 
     <!-- GPIO-LIGHTCTL -->
@@ -112,6 +119,16 @@
     <channel>
         <end pd="commandin" id="11"/>
         <end pd="fault_mg" id="12"/>
+    </channel>
+
+    <channel>
+        <end pd="scheduler" id="13"/>
+        <end pd="fault_mg" id="14"/>
+    </channel>
+
+    <channel>
+        <end pd="scheduler" id="15"/>
+        <end pd="vehicle_state" id="16"/>
     </channel>
 
     <!-- 为了区别各个通信功能，lightctl和gpio用多个channel来沟通 -->

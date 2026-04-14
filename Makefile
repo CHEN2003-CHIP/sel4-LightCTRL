@@ -40,14 +40,18 @@ MICROKIT_TOOL ?= $(MICROKIT_SDK)/bin/microkit
 
 PRINTF_OBJS := printf.o util.o
 POLICY_OBJS := light_policy.o
+PROTOCOL_OBJS := light_protocol.o
 OUTPUT_POLICY_OBJS := light_output_policy.o
+CONTROL_LOGIC_OBJS := light_control_logic.o
 RUNTIME_GUARD_OBJS := light_runtime_guard.o
 FAULT_MODE_OBJS := light_fault_mode.o
 GPIO_OBJS := $(PRINTF_OBJS) $(FAULT_MODE_OBJS) gpio.o
-LIGHTCTL_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) $(OUTPUT_POLICY_OBJS) $(RUNTIME_GUARD_OBJS) $(FAULT_MODE_OBJS) lightctl.o
+EXECUTION_PLAN_OBJS := light_execution_plan.o
+LIGHTCTL_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(EXECUTION_PLAN_OBJS) $(RUNTIME_GUARD_OBJS) $(FAULT_MODE_OBJS) lightctl.o
 COMMANDIN_OBJS := $(PRINTF_OBJS) commandin.o
-FAULT_MG_OBJS := $(PRINTF_OBJS) $(FAULT_MODE_OBJS) faultmg.o
-SCHEDULER_OBJS := $(PRINTF_OBJS) $(POLICY_OBJS) scheduler.o
+FAULT_MG_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(FAULT_MODE_OBJS) faultmg.o
+SCHEDULER_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTROL_LOGIC_OBJS) $(OUTPUT_POLICY_OBJS) $(FAULT_MODE_OBJS) scheduler.o
+VEHICLE_STATE_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) vehicle_state.o
 #VMM_OBJS := $(PRINTF_OBJS) vmm.o psci.o smc.o fault.o vgic.o global_data.o vgic_v2.o
 
 BOARD_DIR := $(MICROKIT_SDK)/board/$(BOARD)/$(MICROKIT_CONFIG)
@@ -56,7 +60,7 @@ IMAGES_PART_1 := gpio.elf
 IMAGES_PART_2 := gpio.elf lightctl.elf
 IMAGES_PART_3 := gpio.elf lightctl.elf commandin.elf
 IMAGES_PART_4 := gpio.elf lightctl.elf commandin.elf faultmg.elf
-IMAGES_PART_5 := gpio.elf lightctl.elf commandin.elf faultmg.elf scheduler.elf
+IMAGES_PART_5 := gpio.elf lightctl.elf commandin.elf faultmg.elf scheduler.elf vehicle_state.elf
 IMAGES_BUILD := $(IMAGES_PART_5)
 LEGACY_TARGETS := part1 part2 part3 part4 part5
 #IMAGES_PART_4 := serial_server.elf client.elf wordle_server.elf vmm.elf
@@ -110,6 +114,18 @@ test-policy: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_policy.c light_policy.c -o build/test_light_policy
 	./build/test_light_policy
 
+test-protocol: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_protocol.c light_protocol.c -o build/test_light_protocol
+	./build/test_light_protocol
+
+test-control: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_control_logic.c light_control_logic.c light_output_policy.c light_protocol.c -o build/test_light_control_logic
+	./build/test_light_control_logic
+
+test-execution: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_execution_plan.c light_execution_plan.c -o build/test_light_execution_plan
+	./build/test_light_execution_plan
+
 test-runtime: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_runtime_guard.c light_runtime_guard.c -o build/test_light_runtime_guard
 	./build/test_light_runtime_guard
@@ -161,6 +177,9 @@ help:
 	@echo "  release  Build the full image with MICROKIT_CONFIG=release"
 	@echo "  smoke    Run the minimal automated smoke test"
 	@echo "  test-policy Run host-side policy unit tests"
+	@echo "  test-protocol Run shared-state compatibility tests"
+	@echo "  test-control Run target_output control-logic tests"
+	@echo "  test-execution Run lightctl execution diff tests"
 	@echo "  test-runtime Run host-side runtime guard unit tests"
 	@echo "  test-fault Run host-side fault mode tests"
 	@echo "  test-fault-transport Run host-side fault mode transport tests"
@@ -231,6 +250,9 @@ $(BUILD_DIR)/faultmg.elf: $(addprefix $(BUILD_DIR)/, $(FAULT_MG_OBJS)) $(CONFIG_
 	$(LD) $(LDFLAGS) $(filter %.o,$^) $(LIBS) -o $@
 
 $(BUILD_DIR)/scheduler.elf: $(addprefix $(BUILD_DIR)/, $(SCHEDULER_OBJS)) $(CONFIG_STAMP)
+	$(LD) $(LDFLAGS) $(filter %.o,$^) $(LIBS) -o $@
+
+$(BUILD_DIR)/vehicle_state.elf: $(addprefix $(BUILD_DIR)/, $(VEHICLE_STATE_OBJS)) $(CONFIG_STAMP)
 	$(LD) $(LDFLAGS) $(filter %.o,$^) $(LIBS) -o $@
 
 # $(BUILD_DIR)/vmm.elf: $(addprefix $(BUILD_DIR)/, $(VMM_OBJS))

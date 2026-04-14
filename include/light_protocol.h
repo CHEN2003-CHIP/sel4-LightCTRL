@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define LIGHT_SHARED_STATE_LAYOUT_V2  2U
+
 #define LIGHT_CMD_LOW_BEAM_OFF    0x00
 #define LIGHT_CMD_LOW_BEAM_ON     0x01
 #define LIGHT_CMD_HIGH_BEAM_OFF   0x10
@@ -33,12 +35,47 @@
 #define LIGHT_UART_CMD_INVALID    0xFF
 
 typedef struct {
+    uint8_t low_beam_req;
+    uint8_t high_beam_req;
+    uint8_t left_turn_req;
+    uint8_t right_turn_req;
+    uint8_t marker_req;
+    uint8_t brake_req;
+} light_operator_request_t;
+
+typedef struct {
+    uint16_t speed_kph;
+    uint8_t brake_pedal;
+    uint8_t ignition_on;
+} light_vehicle_state_t;
+
+typedef struct {
+    uint8_t low_beam_on;
+    uint8_t high_beam_on;
+    uint8_t left_turn_on;
+    uint8_t right_turn_on;
+    uint8_t marker_on;
+    uint8_t brake_on;
+} light_target_output_t;
+
+typedef struct {
+    volatile uint32_t layout_version;
     volatile uint8_t uart_cmd;
     volatile uint32_t allow_flags;
     volatile uint8_t turn_switch_pos;
     volatile uint8_t beam_switch_pos;
     volatile uint16_t vehicle_speed;
+    volatile uint8_t fault_mode;
+    volatile light_operator_request_t operator_request;
+    volatile light_vehicle_state_t vehicle_state;
+    volatile light_target_output_t target_output;
 } light_shmem_t;
+
+light_operator_request_t light_operator_request_init(void);
+light_vehicle_state_t light_vehicle_state_default(void);
+light_target_output_t light_target_output_init(void);
+uint32_t light_target_output_to_allow_flags(light_target_output_t target_output);
+light_target_output_t light_target_output_from_allow_flags(uint32_t allow_flags);
 
 #define LIGHT_CH_GPIO_TURN_LEFT_ON    20
 #define LIGHT_CH_GPIO_TURN_LEFT_OFF   21

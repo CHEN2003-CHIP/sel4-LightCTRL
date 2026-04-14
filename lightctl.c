@@ -13,8 +13,7 @@
 #include <stdio.h>
 #include "logger.h"
 #include "light_fault_mode.h"
-#include "light_output_policy.h"
-#include "light_policy.h"
+#include "light_execution_plan.h"
 #include "light_runtime_guard.h"
 #include "light_protocol.h"
 
@@ -26,16 +25,11 @@
 uintptr_t cmd_buffer;
 uintptr_t input_buffer;
 uintptr_t shared_memory_base_vaddr;
-uintptr_t fault_mode_shared_vaddr;
 
 static light_shmem_t *g_shmem = NULL;
 
-static uint8_t g_last_turn_state = 0;
-static uint8_t g_last_beam_state = 0;
-static uint8_t g_last_brake_state = 0;
-static uint8_t g_last_position_state = 0;
+static light_execution_state_t g_execution_state;
 static fault_mode_t g_fault_mode_cache = LIGHT_FAULT_MODE_NORMAL;
-static bool g_output_sync_ready = false;
 
 static const char *gpio_action_name(microkit_channel ch) {
     switch (ch) {
@@ -72,10 +66,10 @@ static light_runtime_guard_context_t runtime_guard_context(void) {
     light_runtime_guard_context_t context;
 
     context.vehicle_speed = g_shmem->vehicle_speed;
-    context.last_turn_state = g_last_turn_state;
-    context.last_beam_state = g_last_beam_state;
-    context.last_brake_state = g_last_brake_state;
-    context.last_position_state = g_last_position_state;
+    context.last_turn_state = g_execution_state.turn_state;
+    context.last_beam_state = g_execution_state.beam_state;
+    context.last_brake_state = g_execution_state.brake_state;
+    context.last_position_state = g_execution_state.position_state;
     context.fault_mode = g_fault_mode_cache;
 
     return context;
@@ -119,42 +113,15 @@ static bool guard_allows_action(microkit_channel ch) {
     return result.allowed;
 }
 
-static void log_output_policy_adjustment(light_target_state_t requested_target,
-                                         light_target_state_t effective_target) {
-    LOG_WARN("LIGHTCTL_OUTPUT_CLAMP mode=%s req[brake=%d left=%d right=%d low=%d high=%d pos=%d] eff[brake=%d left=%d right=%d low=%d high=%d pos=%d]",
+static void log_target_summary(light_target_output_t target_output) {
+    LOG_INFO("LIGHTCTL_TARGET_SUMMARY mode=%s target=[brake=%u,left=%u,right=%u,low=%u,high=%u,marker=%u]",
              light_fault_mode_name(g_fault_mode_cache),
-             requested_target.brake,
-             requested_target.turn_left,
-             requested_target.turn_right,
-             requested_target.low_beam,
-             requested_target.high_beam,
-             requested_target.position,
-             effective_target.brake,
-             effective_target.turn_left,
-             effective_target.turn_right,
-             effective_target.low_beam,
-             effective_target.high_beam,
-             effective_target.position);
-}
-
-static void log_target_summary(light_target_state_t requested_target,
-                               light_target_state_t effective_target,
-                               bool changed) {
-    LOG_INFO("LIGHTCTL_TARGET_SUMMARY mode=%s requested=[brake=%d,left=%d,right=%d,low=%d,high=%d,pos=%d] effective=[brake=%d,left=%d,right=%d,low=%d,high=%d,pos=%d] changed=%d",
-             light_fault_mode_name(g_fault_mode_cache),
-             requested_target.brake,
-             requested_target.turn_left,
-             requested_target.turn_right,
-             requested_target.low_beam,
-             requested_target.high_beam,
-             requested_target.position,
-             effective_target.brake,
-             effective_target.turn_left,
-             effective_target.turn_right,
-             effective_target.low_beam,
-             effective_target.high_beam,
-             effective_target.position,
-             changed ? 1 : 0);
+             (unsigned int)target_output.brake_on,
+             (unsigned int)target_output.left_turn_on,
+             (unsigned int)target_output.right_turn_on,
+             (unsigned int)target_output.low_beam_on,
+             (unsigned int)target_output.high_beam_on,
+             (unsigned int)target_output.marker_on);
 }
 
 static void trigger_gpio_operation(microkit_channel ch) {
@@ -163,123 +130,91 @@ static void trigger_gpio_operation(microkit_channel ch) {
     LOG_INFO("LightCtrl: Trigger GPIO on channel %d\n", ch);
 }
 
+static void apply_execution_state_transition(microkit_channel action) {
+    switch (action) {
+        case LIGHT_CH_GPIO_TURN_LEFT_ON:
+            g_execution_state.turn_state = 1;
+            break;
+        case LIGHT_CH_GPIO_TURN_LEFT_OFF:
+            if (g_execution_state.turn_state == 1U) {
+                g_execution_state.turn_state = 0;
+            }
+            break;
+        case LIGHT_CH_GPIO_TURN_RIGHT_ON:
+            g_execution_state.turn_state = 2;
+            break;
+        case LIGHT_CH_GPIO_TURN_RIGHT_OFF:
+            if (g_execution_state.turn_state == 2U) {
+                g_execution_state.turn_state = 0;
+            }
+            break;
+        case LIGHT_CH_GPIO_BRAKE_ON:
+            g_execution_state.brake_state = 1;
+            break;
+        case LIGHT_CH_GPIO_BRAKE_OFF:
+            g_execution_state.brake_state = 0;
+            break;
+        case LIGHT_CH_GPIO_LOW_BEAM_ON:
+            g_execution_state.beam_state = 1;
+            break;
+        case LIGHT_CH_GPIO_LOW_BEAM_OFF:
+            if (g_execution_state.beam_state == 1U) {
+                g_execution_state.beam_state = 0;
+            }
+            break;
+        case LIGHT_CH_GPIO_HIGH_BEAM_ON:
+            g_execution_state.beam_state = 2;
+            break;
+        case LIGHT_CH_GPIO_HIGH_BEAM_OFF:
+            if (g_execution_state.beam_state == 2U) {
+                g_execution_state.beam_state = 0;
+            }
+            break;
+        case LIGHT_CH_GPIO_POSITION_ON:
+            g_execution_state.position_state = 1;
+            break;
+        case LIGHT_CH_GPIO_POSITION_OFF:
+            g_execution_state.position_state = 0;
+            break;
+        default:
+            break;
+    }
+}
+
 static void sync_outputs(void) {
-    light_target_state_t requested_target = light_policy_target_from_flags(g_shmem->allow_flags);
-    light_output_policy_result_t policy_result =
-        light_output_policy_apply(requested_target, g_fault_mode_cache);
-    light_target_state_t target = policy_result.target;
+    size_t i;
+    light_target_output_t target = (light_target_output_t)g_shmem->target_output;
+    light_execution_plan_t plan;
+
+    g_fault_mode_cache = (fault_mode_t)g_shmem->fault_mode;
+    plan = light_execution_plan_build(g_execution_state, target);
 
     LOG_INFO("--- LightCtrl State Check ---");
-    LOG_INFO("LIGHTCTL_SYNC allow_flags=0x%02x brake=%d left=%d right=%d low=%d high=%d pos=%d",
+    LOG_INFO("LIGHTCTL_SYNC allow_flags=0x%02x brake=%u left=%u right=%u low=%u high=%u marker=%u actions=%u",
              (unsigned int)g_shmem->allow_flags,
-             requested_target.brake,
-             requested_target.turn_left,
-             requested_target.turn_right,
-             requested_target.low_beam,
-             requested_target.high_beam,
-             requested_target.position);
-    log_target_summary(requested_target, target, policy_result.changed);
-    if (policy_result.changed) {
-        log_output_policy_adjustment(requested_target, target);
-    }
-    LOG_INFO("Shmem: brake=%d, left=%d, right=%d, low=%d, high=%d, pos=%d",
-             target.brake,
-             target.turn_left,
-             target.turn_right,
-             target.low_beam,
-             target.high_beam,
-             target.position);
-    LOG_INFO("Internal: last_brake=%d, last_turn=%d, last_beam=%d",
-             g_last_brake_state,
-             g_last_turn_state,
-             g_last_beam_state);
+             (unsigned int)target.brake_on,
+             (unsigned int)target.left_turn_on,
+             (unsigned int)target.right_turn_on,
+             (unsigned int)target.low_beam_on,
+             (unsigned int)target.high_beam_on,
+             (unsigned int)target.marker_on,
+             (unsigned int)plan.action_count);
+    log_target_summary(target);
 
-    LOG_INFO("GET SCHEDULER SIGANL");
+    for (i = 0; i < plan.action_count; i++) {
+        microkit_channel action = (microkit_channel)plan.actions[i];
 
-    if (target.brake) {
-        if (g_last_brake_state != 1) {
-            if (guard_allows_action(LIGHT_CH_GPIO_BRAKE_ON)) {
-                trigger_gpio_operation(LIGHT_CH_GPIO_BRAKE_ON);
-                g_last_brake_state = 1;
-            }
-        }
-    } else {
-        if (g_last_brake_state != 0) {
-            trigger_gpio_operation(LIGHT_CH_GPIO_BRAKE_OFF);
-            g_last_brake_state = 0;
-        }
-    }
-
-    if (target.turn_left) {
-        if (g_last_turn_state != 1) {
-            if (guard_allows_action(LIGHT_CH_GPIO_TURN_LEFT_ON)) {
-                trigger_gpio_operation(LIGHT_CH_GPIO_TURN_LEFT_ON);
-                g_last_turn_state = 1;
-            }
-        }
-    } else if (target.turn_right) {
-        if (g_last_turn_state != 2) {
-            if (guard_allows_action(LIGHT_CH_GPIO_TURN_RIGHT_ON)) {
-                trigger_gpio_operation(LIGHT_CH_GPIO_TURN_RIGHT_ON);
-                g_last_turn_state = 2;
-            }
-        }
-    } else {
-        if (g_last_turn_state != 0) {
-            microkit_channel off_ch = (g_last_turn_state == 1)
-                ? LIGHT_CH_GPIO_TURN_LEFT_OFF
-                : LIGHT_CH_GPIO_TURN_RIGHT_OFF;
-            trigger_gpio_operation(off_ch);
-            g_last_turn_state = 0;
-        }
-    }
-
-    if (target.low_beam) {
-        if (g_last_beam_state == 2) {
-            trigger_gpio_operation(LIGHT_CH_GPIO_HIGH_BEAM_OFF);
-            g_last_beam_state = 0;
-        }
-        if (g_last_beam_state != 1) {
-            if (guard_allows_action(LIGHT_CH_GPIO_LOW_BEAM_ON)) {
-                trigger_gpio_operation(LIGHT_CH_GPIO_LOW_BEAM_ON);
-                g_last_beam_state = 1;
-            }
-        }
-    } else if (target.high_beam) {
-        if (g_last_beam_state != 2) {
-            if (guard_allows_action(LIGHT_CH_GPIO_HIGH_BEAM_ON)) {
-                trigger_gpio_operation(LIGHT_CH_GPIO_HIGH_BEAM_ON);
-                g_last_beam_state = 2;
-            }
-        }
-    } else {
-        if (g_last_beam_state != 0) {
-            if (g_last_beam_state == 2) {
-                trigger_gpio_operation(LIGHT_CH_GPIO_HIGH_BEAM_OFF);
-            }
-            trigger_gpio_operation(LIGHT_CH_GPIO_LOW_BEAM_OFF);
-            g_last_beam_state = 0;
-        }
-    }
-
-    if (target.position) {
-        if (g_last_position_state != 1) {
-            trigger_gpio_operation(LIGHT_CH_GPIO_POSITION_ON);
-            g_last_position_state = 1;
-        }
-    } else {
-        if (g_last_position_state != 0) {
-            trigger_gpio_operation(LIGHT_CH_GPIO_POSITION_OFF);
-            g_last_position_state = 0;
+        if (guard_allows_action(action)) {
+            trigger_gpio_operation(action);
+            apply_execution_state_transition(action);
         }
     }
 
     LOG_INFO("LIGHTCTL_STATE brake=%d turn=%d beam=%d position=%d",
-             g_last_brake_state,
-             g_last_turn_state,
-             g_last_beam_state,
-             g_last_position_state);
-    g_output_sync_ready = true;
+             g_execution_state.brake_state,
+             g_execution_state.turn_state,
+             g_execution_state.beam_state,
+             g_execution_state.position_state);
 }
 
 void init(void) {
@@ -289,25 +224,14 @@ void init(void) {
         while (1);
     }
 
-    g_last_turn_state = 0;
-    g_last_beam_state = 0;
-    g_last_brake_state = 0;
-    g_last_position_state = 0;
+    g_execution_state = light_execution_state_init();
     g_fault_mode_cache = LIGHT_FAULT_MODE_NORMAL;
-    g_output_sync_ready = false;
 
     LOG_INFO("LIGHTCTL_INIT module=lightctl status=ready");
     LOG_INFO("Light control module initialized\n");
 }
 
 void notified(microkit_channel ch) {
-    if (ch == CH_FAULT_LINK) {
-        g_fault_mode_cache = light_fault_mode_transport_load((volatile const uint8_t *)fault_mode_shared_vaddr);
-        LOG_INFO("LIGHTCTL_FAULT_MODE_UPDATE mode=%s", light_fault_mode_name(g_fault_mode_cache));
-        sync_outputs();
-        return;
-    }
-
     if (ch != CH_SCHEDULER_ALLOW) {
         LOG_INFO("LightCtrl: Unknown channel, ignore\n");
         microkit_mr_set(0, LIGHT_ERR_INVALID_CMD);

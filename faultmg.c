@@ -14,18 +14,24 @@
 
 #define FAULTMG_LIGHTCTL 5
 #define FAULTMG_GPIO 7
+#define FAULTMG_SCHEDULER 14
 #define FAULTMG_TEST_INPUT 12
 
 uintptr_t test_input_buffer;
 uintptr_t fault_mode_shared_vaddr;
+uintptr_t shared_memory_base_vaddr;
 
 uint32_t total_error_count = 0;
 static light_fault_state_t g_fault_state;
+static light_shmem_t *g_shmem = NULL;
 
 static void publish_fault_mode(fault_mode_t mode) {
+    if (g_shmem != NULL) {
+        g_shmem->fault_mode = (uint8_t)mode;
+    }
     light_fault_mode_transport_store((volatile uint8_t *)fault_mode_shared_vaddr, mode);
-    microkit_notify(FAULTMG_LIGHTCTL);
     microkit_notify(FAULTMG_GPIO);
+    microkit_notify(FAULTMG_SCHEDULER);
 }
 
 static void print_error_details(uint8_t err_code) {
@@ -82,6 +88,7 @@ static void handle_fault_event(microkit_channel source_channel, uint8_t error_co
 }
 
 void init(void) {
+    g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
     light_fault_state_reset(&g_fault_state);
     publish_fault_mode(g_fault_state.mode);
     LOG_INFO("FAULT_INIT module=faultmg status=ready");
