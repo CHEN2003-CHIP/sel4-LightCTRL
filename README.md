@@ -1,12 +1,14 @@
 # LightDemo
 
 ```text
-        _____________====_____________
-     .-'/  _  _  _  _    _  _  _  _  \'-.
-   .'__/__/ \/ \/ \/ \__/ \/ \/ \/ \__\_'.
-  /____  seL4 Microkit Automotive Light Control  ____\
-  \____\__/\__/\__/\__/__/\__/\__/\__/____/
-      '-._______________________________,-'
+      _________________________________
+   .-'   __     Cartoon Headlight     '-.
+  /    _/  \_      .-""""-.      _/  \_  \
+ |    /  ()  \    /  .--.  \    /  ()  \  |
+ |    \      /===|  (____)  |===\      /  |
+ |      '-..-'    \  '--'  /    '-..-'    |
+  \                  '-..-'                /
+   '-.___  seL4 Microkit Light Demo  __.-'
 ```
 
 一个基于 seL4 + Microkit 的汽车车灯控制演示工程。
@@ -329,6 +331,38 @@ make test-serial-e2e
 - 主目标仍然是把 tutorial demo 继续整理成工程化项目，而不是一次性堆很多 feature。
 - `vmm/` 目录仍未接入默认主线构建。
 
-## 附图
+## 系统架构图
 
-![LightDemo architecture](imgimage.png)
+```mermaid
+flowchart LR
+    UART["UART / Serial Input"]
+    CMD["commandin\nparser + dispatch"]
+    VEH["vehicle_state\nvehicle updates"]
+    SCHED["scheduler\nrule engine + target_output"]
+    LIGHT["lightctl\nexecution coordination"]
+    GPIO["gpio\npin-level output"]
+    FAULT["faultmg\nfault lifecycle owner"]
+    SHMEM[("shared memory")]
+
+    UART --> CMD
+    CMD -->|light cmd| SCHED
+    CMD -->|vehicle state update| VEH
+    CMD -->|fault inject / clear| FAULT
+    CMD -->|query| SHMEM
+
+    VEH --> SHMEM
+    SCHED --> SHMEM
+    SHMEM --> SCHED
+    SHMEM --> LIGHT
+    SHMEM --> CMD
+    SHMEM --> FAULT
+
+    SCHED -->|sync| LIGHT
+    LIGHT -->|gpio actions| GPIO
+    LIGHT -->|fault report| FAULT
+
+    FAULT -->|fault mode update| GPIO
+    FAULT -->|fault mode update| SCHED
+    FAULT -->|fault mode update| LIGHT
+    FAULT --> SHMEM
+```
