@@ -2,6 +2,7 @@
 
 #include "logger.h"
 #include "light_protocol.h"
+#include "light_transport.h"
 #include "light_vehicle_state.h"
 
 #define CH_SCHEDULER_VEHICLE_UPDATE 16
@@ -28,9 +29,23 @@ void init(void) {
 
 void notified(microkit_channel ch) {
     if (ch == CH_COMMAND_INPUT) {
-        light_vehicle_state_request_t request = *(light_vehicle_state_request_t *)input_buffer;
-        light_vehicle_state_update_result_t result =
-            light_vehicle_state_apply_request((light_vehicle_state_t)g_shmem->vehicle_state, request);
+        light_transport_message_t message = *(light_transport_message_t *)input_buffer;
+        light_vehicle_state_request_t request;
+        light_vehicle_state_update_result_t result;
+
+        if (message.version != LIGHT_TRANSPORT_VERSION
+            || message.type != LIGHT_TRANSPORT_MSG_VEHICLE_STATE_UPDATE
+            || message.len != sizeof(message.payload.vehicle_state_update)) {
+            LOG_INFO("VEHICLE_STATE_MSG_REJECT type=%u len=%u version=%u",
+                     (unsigned int)message.type,
+                     (unsigned int)message.len,
+                     (unsigned int)message.version);
+            return;
+        }
+
+        request = message.payload.vehicle_state_update;
+        result = light_vehicle_state_apply_request((light_vehicle_state_t)g_shmem->vehicle_state,
+                                                   request);
 
         if (!result.accepted) {
             LOG_INFO("VEHICLE_STATE_REJECT field=%u value=%u reason=%d",

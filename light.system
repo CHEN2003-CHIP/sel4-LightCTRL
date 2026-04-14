@@ -62,6 +62,8 @@
 
     <!-- COMMANDIN模块 解析指令，校验（模拟指令输入）-->
     <protection_domain name="commandin" priority="250">
+        <map mr="shared_memory_for_scheduler" vaddr="0x4100000" perms="rw" cached="true"
+            setvar_vaddr="shared_memory_base_vaddr" />
         <map mr="input_buffer_ci_lc" vaddr="0x5000000" perms="rw" setvar_vaddr="input_buffer"/>
         <map mr="uart_phys" vaddr="0x4000000" perms="rw" cached="false"
             setvar_vaddr="uart_base_vaddr" />

@@ -11,6 +11,7 @@
 #include "light_fault_mode.h"
 #include "logger.h"
 #include "light_protocol.h"
+#include "light_transport.h"
 
 #define FAULTMG_LIGHTCTL 5
 #define FAULTMG_GPIO 7
@@ -72,6 +73,10 @@ static void handle_fault_event(microkit_channel source_channel, uint8_t error_co
     total_error_count++;
     decision = light_fault_mode_record_error(&g_fault_state, error_code);
     event = light_fault_event_create(error_code, g_fault_state.mode);
+    if (g_shmem != NULL) {
+        g_shmem->last_fault_code = event.error_code;
+        g_shmem->total_fault_count = total_error_count;
+    }
 
     LOG_INFO("FAULTMG_EVENT source=%s code=0x%02x total=%u",
              fault_event_source_name(source_channel),
@@ -90,6 +95,11 @@ static void handle_fault_event(microkit_channel source_channel, uint8_t error_co
 void init(void) {
     g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
     light_fault_state_reset(&g_fault_state);
+    total_error_count = 0;
+    if (g_shmem != NULL) {
+        g_shmem->last_fault_code = 0U;
+        g_shmem->total_fault_count = 0U;
+    }
     publish_fault_mode(g_fault_state.mode);
     LOG_INFO("FAULT_INIT module=faultmg status=ready");
     LOG_INFO("FAULT_MGMT: initialized\n");
@@ -100,7 +110,19 @@ void notified(microkit_channel channel) {
         uint8_t error_code = 0;
 
         if (channel == FAULTMG_TEST_INPUT) {
-            error_code = *(volatile uint8_t *)test_input_buffer;
+            light_transport_message_t message =
+                *(volatile light_transport_message_t *)test_input_buffer;
+
+            if (message.version != LIGHT_TRANSPORT_VERSION
+                || message.type != LIGHT_TRANSPORT_MSG_FAULT_INJECT
+                || message.len != sizeof(message.payload.fault_error_code)) {
+                LOG_ERROR("FAULTMG: invalid transport message type=%u len=%u version=%u",
+                          (unsigned int)message.type,
+                          (unsigned int)message.len,
+                          (unsigned int)message.version);
+                return;
+            }
+            error_code = message.payload.fault_error_code;
         } else {
             error_code = (uint8_t) microkit_mr_get(0);
         }

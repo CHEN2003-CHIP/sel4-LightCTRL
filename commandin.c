@@ -14,9 +14,11 @@
 #include <microkit.h>
 #include "printf.h"
 #include <stdatomic.h>
+#include <stdio.h>
 #include "logger.h"
-#include "light_command_codec.h"
 #include "light_protocol.h"
+#include "light_status_snapshot.h"
+#include "light_transport.h"
 
 
 /*
@@ -43,6 +45,7 @@
 uintptr_t uart_base_vaddr;
 
 uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
+uintptr_t shared_memory_base_vaddr;
 
 #define SHARED_BUF_SIZE 0x1000  
 
@@ -66,8 +69,8 @@ uintptr_t input_buffer;  // 由系统描述文件的setvar_vaddr自动赋值
 #define TEST_FAULT_HW_STATE '#'
 #endif
 
-static char g_vehicle_line[LIGHT_COMMAND_LINE_MAX];
-static uint8_t g_vehicle_line_len = 0;
+static light_transport_parser_t g_transport_parser;
+static light_shmem_t *g_shmem = NULL;
 
 /**
  * @def REG_PTR(base, offset)
@@ -166,48 +169,50 @@ void init(void) {
     // the UART device.
     
     uart_init();
-    g_vehicle_line_len = 0;
+    light_transport_parser_init(&g_transport_parser);
+    g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
     
     LOG_INFO("CMD_INIT module=commandin status=ready irq_channel=%d out_channel=%d",
              UARTIRP_CHANNEL, LIGHTCTL_CHANNEL);
     LOG_INFO("COMMAND_IN SERVER IS RUNNING");
 }
 
-static void write_command_to_channel(int cm, microkit_channel channel){
-    char* inputbuf=(char*)input_buffer;
-    *(uint8_t*)inputbuf=cm;
-    microkit_notify(channel);
+static void write_transport_message(light_transport_message_t message) {
+    *(light_transport_message_t *)input_buffer = message;
 }
 
-static void write_vehicle_request(light_vehicle_state_request_t request) {
-    *(light_vehicle_state_request_t *)input_buffer = request;
-    microkit_notify(VEHICLE_STATE_CHANNEL);
-}
+static void dispatch_transport_message(light_transport_message_t message) {
+    light_transport_route_t route = light_transport_route_for_message(message);
 
-#if LIGHT_ENABLE_TEST_HOOKS
-static bool try_inject_test_fault(int ch) {
-    uint8_t error_code = 0;
+    write_transport_message(message);
 
-    switch (ch) {
-        case TEST_FAULT_MODE_CONFLICT:
-            error_code = LIGHT_ERR_MODE_CONFLICT;
+    switch (route) {
+        case LIGHT_TRANSPORT_ROUTE_SCHEDULER:
+            microkit_notify(LIGHTCTL_CHANNEL);
             break;
-        case TEST_FAULT_HW_STATE:
-            error_code = LIGHT_ERR_HW_STATE_ERR;
+        case LIGHT_TRANSPORT_ROUTE_VEHICLE_STATE:
+            microkit_notify(VEHICLE_STATE_CHANNEL);
             break;
+        case LIGHT_TRANSPORT_ROUTE_FAULT_MGMT:
+            microkit_notify(TEST_FAULT_CHANNEL);
+            break;
+        case LIGHT_TRANSPORT_ROUTE_COMMANDIN:
+            break;
+        case LIGHT_TRANSPORT_ROUTE_NONE:
         default:
-            return false;
+            break;
     }
-
-    LOG_INFO("CMD_TEST_FAULT char=%c code=0x%02x channel=%d",
-             ch,
-             error_code,
-             TEST_FAULT_CHANNEL);
-    *(volatile uint8_t *)input_buffer = error_code;
-    microkit_notify(TEST_FAULT_CHANNEL);
-    return true;
 }
-#endif
+
+static void emit_status_snapshot(void) {
+    char line[256];
+    light_status_snapshot_t snapshot = light_status_snapshot_capture(g_shmem);
+
+    light_status_snapshot_format(line, sizeof(line), snapshot);
+    LOG_INFO("%s", line);
+    uart_put_str(line);
+    uart_put_str("\r");
+}
 
 /**
  * @brief 转换指令字符为标准化操作码并发送
@@ -216,62 +221,6 @@ static bool try_inject_test_fault(int ch) {
  * @return 无
  * @note 无效字符会打印错误日志并返回，不发送指令
  */
-void send_command(int ch)
-{
-    uint8_t operation_num = LIGHT_UART_CMD_INVALID;
-
-#if LIGHT_ENABLE_TEST_HOOKS
-    if (try_inject_test_fault(ch)) {
-        return;
-    }
-#endif
-
-    if (!light_command_decode_char(ch, &operation_num)) {
-        LOG_ERROR("error operation num\n");
-        return;
-    }
-
-    LOG_INFO("CMD_RX char=%c opcode=0x%02x target=%d", ch, operation_num, LIGHTCTL_CHANNEL);
-    write_command_to_channel(operation_num, LIGHTCTL_CHANNEL);
-}
-
-static void reset_vehicle_line(void) {
-    g_vehicle_line_len = 0;
-    g_vehicle_line[0] = '\0';
-}
-
-static void flush_vehicle_line(void) {
-    light_vehicle_state_request_t request;
-
-    g_vehicle_line[g_vehicle_line_len] = '\0';
-    if (!light_vehicle_state_parse_line(g_vehicle_line, &request)) {
-        LOG_ERROR("invalid vehicle_state command: %s\n", g_vehicle_line);
-        reset_vehicle_line();
-        return;
-    }
-
-    LOG_INFO("CMD_VEHICLE line=%s field=%u value=%u target=%d",
-             g_vehicle_line,
-             (unsigned int)request.field,
-             (unsigned int)request.value,
-             VEHICLE_STATE_CHANNEL);
-    write_vehicle_request(request);
-    reset_vehicle_line();
-}
-
-static bool buffer_vehicle_line_char(int ch) {
-    if (g_vehicle_line_len + 1U >= LIGHT_COMMAND_LINE_MAX) {
-        LOG_ERROR("vehicle_state command too long\n");
-        reset_vehicle_line();
-        return false;
-    }
-
-    g_vehicle_line[g_vehicle_line_len++] = (char)ch;
-    g_vehicle_line[g_vehicle_line_len] = '\0';
-    return true;
-}
-
-
 /**
  * @brief Microkit通道通知处理函数
  * @details 处理UART中断通道通知，读取指令字符、清除中断标志、解析并发送车灯控制指令
@@ -292,23 +241,35 @@ void notified(microkit_channel channel) {
         microkit_irq_ack(channel);
 
         
-        if (ch == '\r') {
-            if (g_vehicle_line_len != 0U) {
-                flush_vehicle_line();
+        {
+            light_transport_message_t message;
+            light_transport_feed_status_t status;
+
+            status = light_transport_parser_feed_char(&g_transport_parser, ch, &message);
+            if (status == LIGHT_TRANSPORT_FEED_MESSAGE_READY) {
+                if (message.type == LIGHT_TRANSPORT_MSG_LIGHT_CMD) {
+                    LOG_INFO("CMD_MSG type=light_cmd cmd=0x%02x",
+                             (unsigned int)message.payload.light_cmd);
+                } else if (message.type == LIGHT_TRANSPORT_MSG_VEHICLE_STATE_UPDATE) {
+                    LOG_INFO("CMD_MSG type=vehicle_state field=%u value=%u",
+                             (unsigned int)message.payload.vehicle_state_update.field,
+                             (unsigned int)message.payload.vehicle_state_update.value);
+                } else if (message.type == LIGHT_TRANSPORT_MSG_FAULT_INJECT) {
+                    LOG_INFO("CMD_MSG type=fault_inject code=0x%02x",
+                             (unsigned int)message.payload.fault_error_code);
+                } else if (message.type == LIGHT_TRANSPORT_MSG_QUERY) {
+                    LOG_INFO("CMD_MSG type=query_status");
+                }
+
+                if (light_transport_route_for_message(message) == LIGHT_TRANSPORT_ROUTE_COMMANDIN) {
+                    emit_status_snapshot();
+                } else {
+                    dispatch_transport_message(message);
+                }
+            } else if (status == LIGHT_TRANSPORT_FEED_ERROR) {
+                LOG_ERROR("transport parse error\n");
             }
-            return;
         }
-
-        if (g_vehicle_line_len == 0U) {
-            uint8_t op = LIGHT_UART_CMD_INVALID;
-
-            if (light_command_decode_char(ch, &op)) {
-                send_command(ch);
-                return;
-            }
-        }
-
-        buffer_vehicle_line_char(ch);
 
     }
     else{

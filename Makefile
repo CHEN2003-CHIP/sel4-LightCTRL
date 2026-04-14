@@ -42,6 +42,8 @@ PRINTF_OBJS := printf.o util.o
 POLICY_OBJS := light_policy.o
 PROTOCOL_OBJS := light_protocol.o
 COMMAND_CODEC_OBJS := light_command_codec.o
+TRANSPORT_OBJS := light_transport.o
+SNAPSHOT_OBJS := light_status_snapshot.o
 OUTPUT_POLICY_OBJS := light_output_policy.o
 CONTROL_LOGIC_OBJS := light_control_logic.o
 VEHICLE_LOGIC_OBJS := light_vehicle_state.o
@@ -50,7 +52,7 @@ FAULT_MODE_OBJS := light_fault_mode.o
 GPIO_OBJS := $(PRINTF_OBJS) $(FAULT_MODE_OBJS) gpio.o
 EXECUTION_PLAN_OBJS := light_execution_plan.o
 LIGHTCTL_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(EXECUTION_PLAN_OBJS) $(RUNTIME_GUARD_OBJS) $(FAULT_MODE_OBJS) lightctl.o
-COMMANDIN_OBJS := $(PRINTF_OBJS) $(COMMAND_CODEC_OBJS) commandin.o
+COMMANDIN_OBJS := $(PRINTF_OBJS) $(COMMAND_CODEC_OBJS) $(TRANSPORT_OBJS) $(SNAPSHOT_OBJS) $(FAULT_MODE_OBJS) commandin.o
 FAULT_MG_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(FAULT_MODE_OBJS) faultmg.o
 SCHEDULER_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTROL_LOGIC_OBJS) $(OUTPUT_POLICY_OBJS) $(FAULT_MODE_OBJS) scheduler.o
 VEHICLE_STATE_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(VEHICLE_LOGIC_OBJS) vehicle_state.o
@@ -93,7 +95,7 @@ CONFIG_STAMP := $(BUILD_DIR)/.microkit_config_$(MICROKIT_CONFIG)
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-.PHONY: all build run clean debug release smoke test-policy test-runtime test-fault test-fault-transport test-integration-fault help $(LEGACY_TARGETS) legacy
+.PHONY: all build run clean debug release smoke test-policy test-runtime test-fault test-fault-transport test-integration-fault test-serial-e2e help $(LEGACY_TARGETS) legacy
 
 all: build
 
@@ -112,6 +114,9 @@ test-integration-fault:
 	$(MAKE) build BUILD_DIR=build-test-hooks TEST_HOOKS=1
 	IMAGE_FILE=build-test-hooks/loader.img ./scripts/fault_injection_test.sh
 
+test-serial-e2e: build
+	./scripts/serial_e2e_test.sh
+
 test-policy: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_policy.c light_policy.c -o build/test_light_policy
 	./build/test_light_policy
@@ -123,6 +128,14 @@ test-protocol: | directories
 test-command: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_command_codec.c light_command_codec.c -o build/test_light_command_codec
 	./build/test_light_command_codec
+
+test-transport: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_transport.c light_transport.c light_command_codec.c -o build/test_light_transport
+	./build/test_light_transport
+
+test-snapshot: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_status_snapshot.c light_status_snapshot.c light_fault_mode.c -o build/test_light_status_snapshot
+	./build/test_light_status_snapshot
 
 test-control: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_control_logic.c light_control_logic.c light_output_policy.c light_protocol.c -o build/test_light_control_logic
@@ -189,6 +202,8 @@ help:
 	@echo "  test-policy Run host-side policy unit tests"
 	@echo "  test-protocol Run shared-state compatibility tests"
 	@echo "  test-command Run command decoding tests"
+	@echo "  test-transport Run transport parser and dispatch tests"
+	@echo "  test-snapshot Run unified status snapshot tests"
 	@echo "  test-control Run target_output control-logic tests"
 	@echo "  test-vehicle Run vehicle_state update tests"
 	@echo "  test-execution Run lightctl execution diff tests"
@@ -196,6 +211,7 @@ help:
 	@echo "  test-fault Run host-side fault mode tests"
 	@echo "  test-fault-transport Run host-side fault mode transport tests"
 	@echo "  test-integration-fault Run QEMU fault-injection integration test (test hooks enabled)"
+	@echo "  test-serial-e2e Run a minimal serial end-to-end transport/query scenario"
 	@echo "  help     Show this help message"
 	@echo ""
 	@echo "Legacy compatibility targets:"

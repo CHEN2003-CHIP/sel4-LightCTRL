@@ -5,6 +5,7 @@
 #include "light_control_logic.h"
 #include "light_fault_mode.h"
 #include "light_protocol.h"
+#include "light_transport.h"
 
 #define CH_UART_CMD 4
 #define CH_LIGHT_CONTROL_SYNC 9
@@ -68,6 +69,8 @@ void init(void) {
 
     g_shmem->layout_version = LIGHT_SHARED_STATE_LAYOUT_V2;
     g_shmem->uart_cmd = LIGHT_UART_CMD_INVALID;
+    g_shmem->last_fault_code = 0U;
+    g_shmem->total_fault_count = 0U;
     g_shmem->operator_request = light_operator_request_init();
     if (g_shmem->vehicle_state.ignition_on == 0U && g_shmem->vehicle_state.speed_kph == 0U
         && g_shmem->vehicle_state.brake_pedal == 0U) {
@@ -85,14 +88,26 @@ void notified(microkit_channel ch) {
     bool need_notify_light_control = false;
 
     if (ch == CH_UART_CMD) {
-        uint8_t cmd = *(uint8_t *)input_buffer;
-        light_control_command_result_t result =
-            light_control_apply_operator_command((light_operator_request_t)g_shmem->operator_request, cmd);
+        light_transport_message_t message = *(light_transport_message_t *)input_buffer;
+        light_control_command_result_t result;
+
+        if (message.version != LIGHT_TRANSPORT_VERSION
+            || message.type != LIGHT_TRANSPORT_MSG_LIGHT_CMD
+            || message.len != sizeof(message.payload.light_cmd)) {
+            LOG_INFO("SCHED_MSG_REJECT type=%u len=%u version=%u",
+                     (unsigned int)message.type,
+                     (unsigned int)message.len,
+                     (unsigned int)message.version);
+            return;
+        }
+
+        result = light_control_apply_operator_command((light_operator_request_t)g_shmem->operator_request,
+                                                      message.payload.light_cmd);
 
         log_command_result(result);
         if (result.accepted) {
             g_shmem->operator_request = result.next_request;
-            g_shmem->uart_cmd = cmd;
+            g_shmem->uart_cmd = message.payload.light_cmd;
             recompute_target_output();
             need_notify_light_control = result.notify;
         }

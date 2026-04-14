@@ -77,6 +77,8 @@ typedef struct {
     volatile uint8_t beam_switch_pos;
     volatile uint16_t vehicle_speed;
     volatile uint8_t fault_mode;
+    volatile uint8_t last_fault_code;
+    volatile uint32_t total_fault_count;
     volatile light_operator_request_t operator_request;
     volatile light_vehicle_state_t vehicle_state;
     volatile light_target_output_t target_output;
