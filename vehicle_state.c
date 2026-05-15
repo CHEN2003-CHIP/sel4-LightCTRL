@@ -5,9 +5,6 @@
 #include "light_transport.h"
 #include "light_vehicle_state.h"
 
-#define CH_SCHEDULER_VEHICLE_UPDATE 16
-#define CH_COMMAND_INPUT 18
-
 uintptr_t shared_memory_base_vaddr;
 uintptr_t input_buffer;
 
@@ -24,11 +21,11 @@ void init(void) {
              (unsigned int)vehicle_state.brake_pedal,
              (unsigned int)vehicle_state.ignition_on);
 
-    microkit_notify(CH_SCHEDULER_VEHICLE_UPDATE);
+    microkit_notify(LIGHT_CH_VEHICLE_STATE_TO_SCHEDULER);
 }
 
 void notified(microkit_channel ch) {
-    if (ch == CH_COMMAND_INPUT) {
+    if (ch == LIGHT_CH_VEHICLE_STATE_FROM_COMMANDIN) {
         light_transport_message_t message = *(light_transport_message_t *)input_buffer;
         light_vehicle_state_request_t request;
         light_vehicle_state_update_result_t result;
@@ -64,7 +61,7 @@ void notified(microkit_channel ch) {
                  (unsigned int)result.next_state.brake_pedal,
                  (unsigned int)result.next_state.ignition_on);
         if (result.changed) {
-            microkit_notify(CH_SCHEDULER_VEHICLE_UPDATE);
+            microkit_notify(LIGHT_CH_VEHICLE_STATE_TO_SCHEDULER);
         }
         return;
     }

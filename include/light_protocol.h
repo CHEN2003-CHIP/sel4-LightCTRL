@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include "light_channels.h"
+
 #define LIGHT_SHARED_STATE_LAYOUT_V3  3U
 
 #define LIGHT_CMD_LOW_BEAM_OFF    0x00
@@ -92,18 +94,5 @@ light_vehicle_state_t light_vehicle_state_default(void);
 light_target_output_t light_target_output_init(void);
 uint32_t light_target_output_to_allow_flags(light_target_output_t target_output);
 light_target_output_t light_target_output_from_allow_flags(uint32_t allow_flags);
-
-#define LIGHT_CH_GPIO_TURN_LEFT_ON    20
-#define LIGHT_CH_GPIO_TURN_LEFT_OFF   21
-#define LIGHT_CH_GPIO_TURN_RIGHT_ON   22
-#define LIGHT_CH_GPIO_TURN_RIGHT_OFF  23
-#define LIGHT_CH_GPIO_BRAKE_ON        24
-#define LIGHT_CH_GPIO_BRAKE_OFF       25
-#define LIGHT_CH_GPIO_LOW_BEAM_ON     26
-#define LIGHT_CH_GPIO_LOW_BEAM_OFF    27
-#define LIGHT_CH_GPIO_HIGH_BEAM_ON    28
-#define LIGHT_CH_GPIO_HIGH_BEAM_OFF   29
-#define LIGHT_CH_GPIO_POSITION_ON     30
-#define LIGHT_CH_GPIO_POSITION_OFF    31
 
 #endif

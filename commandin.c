@@ -46,11 +46,6 @@ uintptr_t shared_memory_base_vaddr;
 #define PL011_UARTFR_TXFF (1 << 5)        /* UART发送FIFO满标志位 */
 #define PL011_UARTFR_RXFE (1 << 4)        /* UART接收FIFO空标志位 */
 
-#define LIGHTCTL_CHANNEL 3
-#define VEHICLE_STATE_CHANNEL 17
-#define UARTIRP_CHANNEL 0
-#define TEST_FAULT_CHANNEL 11
-
 #if LIGHT_ENABLE_TEST_HOOKS
 #define TEST_FAULT_MODE_CONFLICT '!'
 #define TEST_FAULT_HW_STATE '#'
@@ -187,7 +182,7 @@ void init(void) {
     g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
     
     LOG_INFO("CMD_INIT module=commandin status=ready irq_channel=%d out_channel=%d",
-             UARTIRP_CHANNEL, LIGHTCTL_CHANNEL);
+             LIGHT_CH_COMMANDIN_UART_IRQ, LIGHT_CH_COMMANDIN_TO_SCHEDULER);
     LOG_INFO("COMMAND_IN SERVER IS RUNNING");
 }
 
@@ -202,13 +197,13 @@ static void dispatch_transport_message(light_transport_message_t message) {
 
     switch (route) {
         case LIGHT_TRANSPORT_ROUTE_SCHEDULER:
-            microkit_notify(LIGHTCTL_CHANNEL);
+            microkit_notify(LIGHT_CH_COMMANDIN_TO_SCHEDULER);
             break;
         case LIGHT_TRANSPORT_ROUTE_VEHICLE_STATE:
-            microkit_notify(VEHICLE_STATE_CHANNEL);
+            microkit_notify(LIGHT_CH_COMMANDIN_TO_VEHICLE_STATE);
             break;
         case LIGHT_TRANSPORT_ROUTE_FAULT_MGMT:
-            microkit_notify(TEST_FAULT_CHANNEL);
+            microkit_notify(LIGHT_CH_COMMANDIN_TO_FAULTMG);
             break;
         case LIGHT_TRANSPORT_ROUTE_COMMANDIN:
             break;
@@ -261,11 +256,11 @@ static void emit_status_snapshot(void) {
  * @details 处理UART中断通道通知，读取字符、清除中断标志、解析并派发transport消息。
  * @param channel 触发通知的通道编号
  * @return 无
- * @note 仅处理UARTIRP_CHANNEL通道，其他通道打印错误提示
+ * @note 仅处理LIGHT_CH_COMMANDIN_UART_IRQ通道，其他通道打印错误提示
  */
 void notified(microkit_channel channel) {
 
-    if (channel == UARTIRP_CHANNEL) {
+    if (channel == LIGHT_CH_COMMANDIN_UART_IRQ) {
         // 1. 调用uart_get_char()获取键盘输入的字符
         int ch = uart_get_char();
     

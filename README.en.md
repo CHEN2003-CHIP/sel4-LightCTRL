@@ -9,10 +9,12 @@ The current mainline flow is:
 ```text
 commandin -> scheduler -> lightctl -> gpio
 lightctl  -> faultmg
-faultmg   -> lightctl
+faultmg   -> gpio
+faultmg   -> scheduler -> lightctl
+commandin -> vehicle_state -> scheduler
 ```
 
-`scheduler` and `lightctl` also share one memory region for the current allow-state.
+The shared state carries operator requests, vehicle state, fault mode, and scheduler target output.
 
 ## Component Roles
 
@@ -53,6 +55,8 @@ Recommended targets:
 - `make debug`
 - `make release`
 - `make smoke`
+- `make test`
+- `make qemu-test`
 - `make test-transport`
 - `make test-snapshot`
 - `make test-fault-transport`
@@ -108,6 +112,12 @@ This runs the image at `build/loader.img`.
 Host-side validation:
 
 ```bash
+make test
+```
+
+Individual host-side validation:
+
+```bash
 make test-policy
 make test-runtime
 make test-fault
@@ -117,8 +127,15 @@ make test-fault-transport
 Full QEMU validation:
 
 ```bash
+make qemu-test
+```
+
+Individual QEMU validation:
+
+```bash
 make smoke
 make test-integration-fault
+make test-serial-e2e
 ```
 
 The repository includes a minimal automated smoke test:
@@ -135,7 +152,7 @@ The repository also includes a QEMU fault-injection integration test:
 make test-integration-fault
 ```
 
-That path proves `fault event -> faultmg transition -> lightctl immediate sync -> gpio output switch` without waiting for another normal scheduler update.
+That path proves `fault event -> faultmg transition -> scheduler re-arbitration -> lightctl sync -> gpio output switch` without waiting for another normal light command.
 
 ## Debug / Release Notes
 
@@ -174,3 +191,4 @@ Fault-management helpers:
 - `build/` is a build-output directory, not source code.
 - `vmm/` exists in the repository, but it is not part of the default `part1` to `part5` build path.
 - The current lifecycle v1 is intentionally minimal: it supports clear, a recovery observation window, hysteresis, and one-step-at-a-time fallback, but not real time-based recovery or a full fault taxonomy.
+- Engineering review docs live under `docs/`: architecture, safety case, requirements, test plan, and demo script.

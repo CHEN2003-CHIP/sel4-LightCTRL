@@ -7,11 +7,6 @@
 #include "light_protocol.h"
 #include "light_transport.h"
 
-#define CH_UART_CMD 4
-#define CH_LIGHT_CONTROL_SYNC 9
-#define CH_FAULT_MODE_UPDATE 13
-#define CH_VEHICLE_STATE_UPDATE 15
-
 uintptr_t shared_memory_base_vaddr;
 uintptr_t input_buffer;
 
@@ -90,7 +85,7 @@ void init(void) {
 void notified(microkit_channel ch) {
     bool need_notify_light_control = false;
 
-    if (ch == CH_UART_CMD) {
+    if (ch == LIGHT_CH_SCHEDULER_FROM_COMMANDIN) {
         light_transport_message_t message = *(light_transport_message_t *)input_buffer;
         light_control_command_result_t result;
 
@@ -114,7 +109,8 @@ void notified(microkit_channel ch) {
             recompute_target_output();
             need_notify_light_control = result.notify;
         }
-    } else if (ch == CH_FAULT_MODE_UPDATE || ch == CH_VEHICLE_STATE_UPDATE) {
+    } else if (ch == LIGHT_CH_SCHEDULER_FROM_FAULTMG
+               || ch == LIGHT_CH_SCHEDULER_FROM_VEHICLE_STATE) {
         recompute_target_output();
         need_notify_light_control = true;
     } else {
@@ -122,6 +118,6 @@ void notified(microkit_channel ch) {
     }
 
     if (need_notify_light_control) {
-        microkit_notify(CH_LIGHT_CONTROL_SYNC);
+        microkit_notify(LIGHT_CH_SCHEDULER_TO_LIGHTCTL);
     }
 }

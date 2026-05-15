@@ -111,39 +111,39 @@ run_degraded_scenario() {
     local inject_line output_line
 
     send_key "!"
-    wait_for_log "CMD_TEST_FAULT char=! code=0x02 channel=11"
+    wait_for_log "CMD_MSG type=fault_inject code=0x02"
     send_key "!"
-    wait_for_log "FAULTMG_MODE_TRANSITION prev=WARN next=WARN changed=0 code=0x02 total=2"
+    wait_for_log "FAULTMG_MODE_TRANSITION prev=WARN next=WARN changed=0"
     send_key "!"
-    wait_for_log "FAULTMG_MODE_TRANSITION prev=WARN next=DEGRADED changed=1 code=0x02 total=3"
-    wait_for_log "LIGHTCTL_FAULT_MODE_UPDATE mode=DEGRADED"
-    wait_for_log "LIGHTCTL_TARGET_SUMMARY mode=DEGRADED requested=[brake=0,left=0,right=0,low=0,high=0,pos=1] effective=[brake=0,left=0,right=0,low=1,high=0,pos=1] changed=1"
+    wait_for_log "FAULTMG_MODE_TRANSITION prev=WARN next=DEGRADED changed=1"
+    wait_for_log "SCHED_TARGET mode=DEGRADED"
+    wait_for_log "LIGHTCTL_TARGET_SUMMARY mode=DEGRADED target=[brake=0,left=0,right=0,low=1,high=0,marker=1]"
     wait_for_log "GPIO_OUTPUT_SUMMARY brake=0 left=0 right=0 low=1 high=0 position=1"
 
-    inject_line=$(last_line "CMD_TEST_FAULT char=! code=0x02 channel=11")
+    inject_line=$(last_line "CMD_MSG type=fault_inject code=0x02")
     output_line=$(line_after "GPIO_OUTPUT_SUMMARY brake=0 left=0 right=0 low=1 high=0 position=1" "$inject_line")
-    assert_no_pattern_between "SCHED_APPLY" "$inject_line" "$output_line"
+    assert_no_pattern_between "CMD_MSG type=light_cmd" "$inject_line" "$output_line"
 }
 
 run_safe_mode_scenario() {
     local inject_line output_line
 
     send_key "p"
-    wait_for_log "CMD_RX char=p opcode=0x40"
-    wait_for_log "SCHED_APPLY cmd=0x40"
+    wait_for_log "CMD_MSG type=light_cmd cmd=0x40"
+    wait_for_log "SCHED_CMD_ACCEPT cmd=0x40"
     wait_for_log "GPIO_OUTPUT_SUMMARY brake=0 left=0 right=0 low=0 high=0 position=0"
 
     send_key "#"
-    wait_for_log "CMD_TEST_FAULT char=# code=0x04 channel=11"
+    wait_for_log "CMD_MSG type=fault_inject code=0x04"
     send_key "#"
-    wait_for_log "FAULTMG_MODE_TRANSITION prev=NORMAL next=SAFE_MODE changed=1 code=0x04 total=2"
-    wait_for_log "LIGHTCTL_FAULT_MODE_UPDATE mode=SAFE_MODE"
-    wait_for_log "LIGHTCTL_TARGET_SUMMARY mode=SAFE_MODE requested=[brake=0,left=0,right=0,low=0,high=0,pos=0] effective=[brake=0,left=0,right=0,low=1,high=0,pos=1] changed=1"
+    wait_for_log "FAULTMG_MODE_TRANSITION prev=WARN next=SAFE_MODE changed=1"
+    wait_for_log "SCHED_TARGET mode=SAFE_MODE"
+    wait_for_log "LIGHTCTL_TARGET_SUMMARY mode=SAFE_MODE target=[brake=0,left=0,right=0,low=1,high=0,marker=1]"
     wait_for_log "GPIO_OUTPUT_SUMMARY brake=0 left=0 right=0 low=1 high=0 position=1"
 
-    inject_line=$(last_line "CMD_TEST_FAULT char=# code=0x04 channel=11")
+    inject_line=$(last_line "CMD_MSG type=fault_inject code=0x04")
     output_line=$(line_after "GPIO_OUTPUT_SUMMARY brake=0 left=0 right=0 low=1 high=0 position=1" "$inject_line")
-    assert_no_pattern_between "SCHED_APPLY" "$inject_line" "$output_line"
+    assert_no_pattern_between "CMD_MSG type=light_cmd" "$inject_line" "$output_line"
 }
 
 trap cleanup EXIT

@@ -139,20 +139,10 @@
         <end pd="vehicle_state" id="18"/>
     </channel>
 
-    <!-- 为了区别各个通信功能，lightctl和gpio用多个channel来沟通 -->
-    <!-- // 通道ID：灯光控制→GPIO模块（硬件操作指令）
-        #define CH_GPIO_TURN_LEFT_ON        20
-        #define CH_GPIO_TURN_LEFT_OFF       21
-        #define CH_GPIO_TURN_RIGHT_ON       22
-        #define CH_GPIO_TURN_RIGHT_OFF      23
-        #define CH_GPIO_BRAKE_ON            24
-        #define CH_GPIO_BRAKE_OFF           25
-        #define CH_GPIO_LOW_BEAM_ON         26
-        #define CH_GPIO_LOW_BEAM_OFF        27
-        #define CH_GPIO_HIGH_BEAM_ON        28
-        #define CH_GPIO_HIGH_BEAM_OFF       29
-        #define CH_GPIO_POSITION_ON         30
-        #define CH_GPIO_POSITION_OFF        31 -->
+    <!--
+      GPIO action endpoint IDs are centralized in include/light_channels.h.
+      Keep the lightctl/gpio channel IDs below synchronized with LIGHT_CH_GPIO_*.
+    -->
     <channel>
         <end pd="lightctl" id="20"/>
         <end pd="gpio" id="20"/>

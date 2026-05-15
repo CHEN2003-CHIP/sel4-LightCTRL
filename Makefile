@@ -67,6 +67,8 @@ IMAGES_PART_4 := gpio.elf lightctl.elf commandin.elf faultmg.elf
 IMAGES_PART_5 := gpio.elf lightctl.elf commandin.elf faultmg.elf scheduler.elf vehicle_state.elf
 IMAGES_BUILD := $(IMAGES_PART_5)
 LEGACY_TARGETS := part1 part2 part3 part4 part5
+HOST_TEST_TARGETS := test-policy test-protocol test-command test-transport test-snapshot test-control test-vehicle test-execution test-runtime test-fault test-fault-transport
+QEMU_TEST_TARGETS := smoke test-integration-fault test-serial-e2e
 #IMAGES_PART_4 := serial_server.elf client.elf wordle_server.elf vmm.elf
 # Note that these warnings being disabled is to avoid compilation errors while in the middle of completing each exercise part
 ifeq ($(MICROKIT_CONFIG),release)
@@ -95,7 +97,7 @@ CONFIG_STAMP := $(BUILD_DIR)/.microkit_config_$(MICROKIT_CONFIG)
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-.PHONY: all build run clean debug release smoke test-policy test-runtime test-fault test-fault-transport test-integration-fault test-serial-e2e help $(LEGACY_TARGETS) legacy
+.PHONY: all build run clean debug release smoke test qemu-test $(HOST_TEST_TARGETS) $(QEMU_TEST_TARGETS) help $(LEGACY_TARGETS) legacy
 
 all: build
 
@@ -109,6 +111,13 @@ release:
 
 smoke: build
 	./scripts/smoke_test.sh
+
+test: $(HOST_TEST_TARGETS)
+
+qemu-test:
+	$(MAKE) smoke
+	$(MAKE) test-integration-fault
+	$(MAKE) test-serial-e2e
 
 test-integration-fault:
 	$(MAKE) build BUILD_DIR=build-test-hooks TEST_HOOKS=1
@@ -199,6 +208,8 @@ help:
 	@echo "  debug    Build the full image with MICROKIT_CONFIG=debug"
 	@echo "  release  Build the full image with MICROKIT_CONFIG=release"
 	@echo "  smoke    Run the minimal automated smoke test"
+	@echo "  test     Run all host-side unit tests"
+	@echo "  qemu-test Run smoke, fault-injection, and serial E2E QEMU tests"
 	@echo "  test-policy Run host-side policy unit tests"
 	@echo "  test-protocol Run shared-state compatibility tests"
 	@echo "  test-command Run command decoding tests"

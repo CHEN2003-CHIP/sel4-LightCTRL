@@ -19,11 +19,6 @@
 #include "light_runtime_guard.h"
 #include "light_protocol.h"
 
-/* Channel ID: scheduler -> lightctl synchronization notification. */
-#define CH_SCHEDULER_ALLOW 10
-/* Channel ID: lightctl -> faultmg fault report. */
-#define CH_FAULT_LINK 6
-
 uintptr_t cmd_buffer;
 uintptr_t input_buffer;
 uintptr_t shared_memory_base_vaddr;
@@ -108,7 +103,7 @@ static bool guard_allows_action(microkit_channel ch) {
         log_guard_rejection(ch, result.error_code);
         if (result.report_fault) {
             microkit_mr_set(0, result.error_code);
-            microkit_notify(CH_FAULT_LINK);
+            microkit_notify(LIGHT_CH_LIGHTCTL_TO_FAULTMG);
         }
     }
 
@@ -234,10 +229,10 @@ void init(void) {
 }
 
 void notified(microkit_channel ch) {
-    if (ch != CH_SCHEDULER_ALLOW) {
+    if (ch != LIGHT_CH_LIGHTCTL_FROM_SCHEDULER) {
         LOG_INFO("LightCtrl: Unknown channel, ignore\n");
         microkit_mr_set(0, LIGHT_ERR_INVALID_CMD);
-        microkit_notify(CH_FAULT_LINK);
+        microkit_notify(LIGHT_CH_LIGHTCTL_TO_FAULTMG);
         return;
     }
 

@@ -21,9 +21,6 @@ uintptr_t cmd_buffer;
 uintptr_t timer_base_vaddr;
 uintptr_t fault_mode_shared_vaddr;
 
-#define GPIO_CHANNEL 1
-#define FAULT_NOTIFY_CHANNEL 8
-
 #define REG_PTR(base, offset) ((volatile uint32_t *)((base) + (offset)))
 
 #define TIMER_LOAD_OFFSET 0x00
@@ -182,7 +179,7 @@ void notified(microkit_channel ch) {
     bool level = false;
 
     switch (ch) {
-        case FAULT_NOTIFY_CHANNEL:
+        case LIGHT_CH_GPIO_FROM_FAULTMG:
             g_fault_mode_cache = light_fault_mode_transport_load((volatile const uint8_t *)fault_mode_shared_vaddr);
             LOG_INFO("GPIO_FAULT_MODE_UPDATE mode=%s", light_fault_mode_name(g_fault_mode_cache));
             return;

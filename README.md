@@ -127,6 +127,9 @@ make test-snapshot
 - 如何把 tutorial 风格代码逐步整理成可维护项目
 - 系统设计文档：[docs/architecture.md](docs/architecture.md)
 - 安全与故障模型：[docs/safety_case.md](docs/safety_case.md)
+- 需求追踪：[docs/requirements.md](docs/requirements.md)
+- 测试矩阵：[docs/test_plan.md](docs/test_plan.md)
+- 检查演示流程：[docs/demo_script.md](docs/demo_script.md)
 
 ## 操作指南
 
@@ -140,6 +143,8 @@ make test-snapshot
 - `make debug`
 - `make release`
 - `make smoke`
+- `make test`
+- `make qemu-test`
 - `make test-policy`
 - `make test-runtime`
 - `make test-fault`
@@ -288,12 +293,24 @@ make test-transport
 make test-snapshot
 ```
 
+如果要跑完整 host-side 单元测试：
+
+```bash
+make test
+```
+
 ### QEMU 验证
 
 ```bash
 make smoke
 make test-integration-fault
 make test-serial-e2e
+```
+
+如果 QEMU、Microkit SDK 和交叉编译工具链都已配置好，也可以直接：
+
+```bash
+make qemu-test
 ```
 
 验证重点包括：
@@ -310,14 +327,17 @@ make test-serial-e2e
 
 1. [docs/architecture.md](docs/architecture.md)
 2. [docs/safety_case.md](docs/safety_case.md)
-3. [light.system](light.system)
-4. [commandin.c](commandin.c)
-5. [scheduler.c](scheduler.c)
-6. [lightctl.c](lightctl.c)
-7. [faultmg.c](faultmg.c)
-8. [light_fault_mode.c](light_fault_mode.c)
-9. [tests/test_light_fault_mode.c](tests/test_light_fault_mode.c)
-10. [scripts/serial_e2e_test.sh](scripts/serial_e2e_test.sh)
+3. [docs/requirements.md](docs/requirements.md)
+4. [docs/test_plan.md](docs/test_plan.md)
+5. [docs/demo_script.md](docs/demo_script.md)
+6. [light.system](light.system)
+7. [commandin.c](commandin.c)
+8. [scheduler.c](scheduler.c)
+9. [lightctl.c](lightctl.c)
+10. [faultmg.c](faultmg.c)
+11. [light_fault_mode.c](light_fault_mode.c)
+12. [tests/test_light_fault_mode.c](tests/test_light_fault_mode.c)
+13. [scripts/serial_e2e_test.sh](scripts/serial_e2e_test.sh)
 
 ## 工程实践价值
 

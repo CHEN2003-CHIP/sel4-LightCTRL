@@ -39,6 +39,37 @@ wait_for_log() {
     return 1
 }
 
+last_line() {
+    pattern="$1"
+    awk -v pattern="$pattern" '
+        index($0, pattern) > 0 { line = NR }
+        END { if (line > 0) { print line } }
+    ' "$LOG_FILE"
+}
+
+wait_for_log_after() {
+    pattern="$1"
+    after_line="$2"
+    timeout_seconds="${3:-20}"
+    elapsed=0
+
+    while [ "$elapsed" -lt "$timeout_seconds" ]; do
+        if awk -v pattern="$pattern" -v after_line="$after_line" '
+            NR > after_line && index($0, pattern) > 0 { found = 1; exit }
+            END { exit(found ? 0 : 1) }
+        ' "$LOG_FILE" 2>/dev/null; then
+            return 0
+        fi
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    echo "Serial E2E timeout waiting after line $after_line for log: $pattern" >&2
+    echo "--- qemu.log tail ---" >&2
+    tail -n 120 "$LOG_FILE" >&2 || true
+    return 1
+}
+
 send_text() {
     text="$1"
     printf '%s' "$text" >&3
@@ -71,6 +102,8 @@ send_text "#"
 wait_for_log "CMD_MSG type=fault_inject code=0x04"
 send_text "#"
 wait_for_log "FAULTMG_MODE_TRANSITION prev=WARN next=SAFE_MODE changed=1"
+safe_mode_line=$(last_line "FAULTMG_MODE_TRANSITION prev=WARN next=SAFE_MODE changed=1")
+wait_for_log_after "SCHED_TARGET mode=SAFE_MODE" "$safe_mode_line"
 
 send_text "?"
 wait_for_log "CMD_MSG type=query_status"
@@ -79,6 +112,8 @@ wait_for_log "STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=ACTIVE"
 send_text "C"
 wait_for_log "CMD_MSG type=fault_clear scope=1"
 wait_for_log "FAULTMG_CLEAR prev=SAFE_MODE next=SAFE_MODE changed=0 lifecycle_prev=ACTIVE lifecycle_next=RECOVERING lifecycle_changed=1"
+clear_line=$(last_line "FAULTMG_CLEAR prev=SAFE_MODE next=SAFE_MODE changed=0 lifecycle_prev=ACTIVE lifecycle_next=RECOVERING lifecycle_changed=1")
+wait_for_log_after "SCHED_TARGET mode=SAFE_MODE" "$clear_line"
 
 send_text "?"
 wait_for_log "CMD_MSG type=query_status"
@@ -89,6 +124,8 @@ wait_for_log "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=SAFE_MODE changed=0 life
 
 send_text "C"
 wait_for_log "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=DEGRADED changed=1 lifecycle_prev=RECOVERING lifecycle_next=RECOVERING lifecycle_changed=0"
+degraded_line=$(last_line "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=DEGRADED changed=1 lifecycle_prev=RECOVERING lifecycle_next=RECOVERING lifecycle_changed=0")
+wait_for_log_after "SCHED_TARGET mode=DEGRADED" "$degraded_line"
 
 send_text "?"
 wait_for_log "STATUS_SNAPSHOT fault=DEGRADED lifecycle=RECOVERING recovery_ticks=0/2 active_faults=0x00"

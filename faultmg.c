@@ -14,11 +14,6 @@
 #include "light_protocol.h"
 #include "light_transport.h"
 
-#define FAULTMG_LIGHTCTL 5
-#define FAULTMG_GPIO 7
-#define FAULTMG_SCHEDULER 14
-#define FAULTMG_TEST_INPUT 12
-
 uintptr_t test_input_buffer;
 uintptr_t fault_mode_shared_vaddr;
 uintptr_t shared_memory_base_vaddr;
@@ -38,8 +33,8 @@ static void publish_fault_state(void) {
     }
 
     light_fault_mode_transport_store((volatile uint8_t *)fault_mode_shared_vaddr, g_fault_state.mode);
-    microkit_notify(FAULTMG_GPIO);
-    microkit_notify(FAULTMG_SCHEDULER);
+    microkit_notify(LIGHT_CH_FAULTMG_TO_GPIO);
+    microkit_notify(LIGHT_CH_FAULTMG_TO_SCHEDULER);
 }
 
 static void print_error_details(uint8_t err_code) {
@@ -64,9 +59,9 @@ static void print_error_details(uint8_t err_code) {
 
 static const char *fault_event_source_name(microkit_channel channel) {
     switch (channel) {
-        case FAULTMG_LIGHTCTL:
+        case LIGHT_CH_FAULTMG_FROM_LIGHTCTL:
             return "lightctl";
-        case FAULTMG_TEST_INPUT:
+        case LIGHT_CH_FAULTMG_FROM_COMMANDIN:
             return "commandin";
         default:
             return "unknown";
@@ -141,14 +136,14 @@ void init(void) {
 }
 
 void notified(microkit_channel channel) {
-    if (channel == FAULTMG_LIGHTCTL) {
+    if (channel == LIGHT_CH_FAULTMG_FROM_LIGHTCTL) {
         uint8_t error_code = (uint8_t)microkit_mr_get(0);
 
         handle_fault_event(channel, error_code);
         return;
     }
 
-    if (channel == FAULTMG_TEST_INPUT) {
+    if (channel == LIGHT_CH_FAULTMG_FROM_COMMANDIN) {
         light_transport_message_t message =
             *(volatile light_transport_message_t *)test_input_buffer;
 
