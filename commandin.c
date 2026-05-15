@@ -1,11 +1,13 @@
 /**
- * @file uart_cmd_handler.c
- * @brief 车灯控制系统-UART命令处理组件
- * @details 基于seL4+Microkit框架实现UART串口通信，解析键盘输入的车灯控制指令，
- *          将指令转换为标准化操作码后通过共享缓冲区发送至lightctl组件执行
+ * @file commandin.c
+ * @brief UART input gateway for the lighting control system.
+ * @details Receives PL011 UART input, parses it into light transport messages,
+ *          and dispatches each message to scheduler, vehicle_state, faultmg,
+ *          or the local status snapshot path.
  * @author USTC-CHEN
  * @date 2025-12-05
- * @note 仅支持近光灯、远光灯、左右转向灯的开关控制指令解析，指令采用字符编码方式
+ * @note This component owns command parsing only. Fault lifecycle ownership
+ *       stays in faultmg.
  */
 
 
@@ -22,22 +24,6 @@
 #include "light_transport.h"
 
 
-/*
----------COMMAND---------
-               H   L    OP
-近光灯开启	    0	1	0x01    L
-近光灯关闭	    0	0	0x00    l
-远光灯开启	    1	1	0x11    H
-远光灯关闭	    1	0	0x10    h
-左转向灯开启	2	1	0x21    Z
-左转向灯关闭	2	0	0x20    z
-右转向灯开启	3	1	0x31    Y
-右转向灯关闭	3	0	0x30    y
-
-*/
-
-
-// This variable will have the address of the UART device
 /**
  * @var uart_base_vaddr
  * @brief UART设备硬件寄存器基地址
@@ -271,15 +257,8 @@ static void emit_status_snapshot(void) {
 }
 
 /**
- * @brief 转换指令字符为标准化操作码并发送
- * @details 将键盘输入的指令字符映射为16进制操作码，调用write_command发送
- * @param ch 输入的指令字符（如L/l/H/h等）
- * @return 无
- * @note 无效字符会打印错误日志并返回，不发送指令
- */
-/**
  * @brief Microkit通道通知处理函数
- * @details 处理UART中断通道通知，读取指令字符、清除中断标志、解析并发送车灯控制指令
+ * @details 处理UART中断通道通知，读取字符、清除中断标志、解析并派发transport消息。
  * @param channel 触发通知的通道编号
  * @return 无
  * @note 仅处理UARTIRP_CHANNEL通道，其他通道打印错误提示

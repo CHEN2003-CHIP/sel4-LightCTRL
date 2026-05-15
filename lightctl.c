@@ -1,13 +1,15 @@
 /**
  * @file lightctl.c
- * @brief 杞︾伅鎺у埗绯荤粺-鏍稿績鎺у埗缁勪欢
+ * @brief Execution coordinator for the lighting control system.
+ * @details Consumes scheduler target output from shared memory, builds the
+ *          minimal GPIO action plan, applies runtime guard checks, and reports
+ *          rejected high-risk actions to faultmg.
  */
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <microkit.h>
 #include "printf.h"
-#include "wordle.h"
 #include <stdatomic.h>
 #include <string.h>
 #include <stdio.h>
@@ -17,9 +19,9 @@
 #include "light_runtime_guard.h"
 #include "light_protocol.h"
 
-// 閫氶亾ID锛氳皟搴﹀櫒鈫掔伅鍏夋帶鍒讹紙鍏佽鎵ц閫氱煡锛?
+/* Channel ID: scheduler -> lightctl synchronization notification. */
 #define CH_SCHEDULER_ALLOW 10
-// 閫氶亾ID锛氱伅鍏夋帶鍒垛啋閿欒澶勭悊妯″潡
+/* Channel ID: lightctl -> faultmg fault report. */
 #define CH_FAULT_LINK 6
 
 uintptr_t cmd_buffer;

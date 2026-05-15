@@ -41,9 +41,9 @@
 ```text
 commandin -> scheduler -> lightctl -> gpio
 lightctl  -> faultmg
-faultmg   -> lightctl
 faultmg   -> gpio
 faultmg   -> scheduler
+faultmg   -> scheduler -> lightctl   (fault mode re-arbitration)
 commandin -> faultmg   (fault inject / clear)
 commandin -> vehicle_state
 ```
@@ -125,6 +125,8 @@ make test-snapshot
 - 为什么只靠 counter 不够，需要 lifecycle state
 - 如何用 QEMU + shell script 做最小 E2E
 - 如何把 tutorial 风格代码逐步整理成可维护项目
+- 系统设计文档：[docs/architecture.md](docs/architecture.md)
+- 安全与故障模型：[docs/safety_case.md](docs/safety_case.md)
 
 ## 操作指南
 
@@ -214,6 +216,7 @@ lightdemo/
 ├── faultmg.c           # fault lifecycle owner
 ├── vehicle_state.c     # 车辆状态更新
 ├── light.system        # Microkit 系统描述
+├── docs/               # 架构、安全与工程说明
 ├── scripts/            # smoke / integration / serial E2E 脚本
 ├── tests/              # host-side 测试
 ├── Makefile            # 构建入口
@@ -252,7 +255,7 @@ lightdemo/
 - fault mode 的唯一 owner
 - 管理 `ACTIVE / RECOVERING / STABLE`
 - 支持 inject、clear、恢复窗口、逐级回退
-- 负责把 mode 广播给其他域
+- 负责发布 mode，并通知 `gpio` 与 `scheduler`；`lightctl` 通过调度同步获得更新后的目标输出
 
 ## fault lifecycle v1
 
@@ -305,18 +308,20 @@ make test-serial-e2e
 
 如果你是第一次看这个仓库，建议按这个顺序读：
 
-1. [light.system](/home/chen/microkit_tutorial/lightCtlTest/light.system)
-2. [commandin.c](/home/chen/microkit_tutorial/lightCtlTest/commandin.c)
-3. [scheduler.c](/home/chen/microkit_tutorial/lightCtlTest/scheduler.c)
-4. [lightctl.c](/home/chen/microkit_tutorial/lightCtlTest/lightctl.c)
-5. [faultmg.c](/home/chen/microkit_tutorial/lightCtlTest/faultmg.c)
-6. [light_fault_mode.c](/home/chen/microkit_tutorial/lightCtlTest/light_fault_mode.c)
-7. [tests/test_light_fault_mode.c](/home/chen/microkit_tutorial/lightCtlTest/tests/test_light_fault_mode.c)
-8. [scripts/serial_e2e_test.sh](/home/chen/microkit_tutorial/lightCtlTest/scripts/serial_e2e_test.sh)
+1. [docs/architecture.md](docs/architecture.md)
+2. [docs/safety_case.md](docs/safety_case.md)
+3. [light.system](light.system)
+4. [commandin.c](commandin.c)
+5. [scheduler.c](scheduler.c)
+6. [lightctl.c](lightctl.c)
+7. [faultmg.c](faultmg.c)
+8. [light_fault_mode.c](light_fault_mode.c)
+9. [tests/test_light_fault_mode.c](tests/test_light_fault_mode.c)
+10. [scripts/serial_e2e_test.sh](scripts/serial_e2e_test.sh)
 
-## 为什么值得点个 Star
+## 工程实践价值
 
-如果你喜欢这类项目，一个 Star 对仓库很有帮助。这个仓库的价值在于它同时覆盖了几类内容：
+这个仓库的价值在于它同时覆盖了几类内容：
 
 - seL4 / Microkit 入门友好
 - 嵌入式控制链路完整
@@ -363,6 +368,5 @@ flowchart LR
 
     FAULT -->|fault mode update| GPIO
     FAULT -->|fault mode update| SCHED
-    FAULT -->|fault mode update| LIGHT
     FAULT --> SHMEM
 ```
