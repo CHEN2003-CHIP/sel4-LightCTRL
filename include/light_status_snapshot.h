@@ -6,6 +6,8 @@
 #include "light_protocol.h"
 
 typedef struct {
+    uint32_t layout_version;
+    uint8_t contract_status;
     uint8_t fault_mode;
     uint8_t lifecycle;
     uint8_t recovery_ticks;

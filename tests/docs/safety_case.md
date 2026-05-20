@@ -91,10 +91,12 @@ This is the anti-flap behavior. It prevents a repeated clear/fault pattern from 
 
 The safety model is visible through:
 
-- `STATUS_SNAPSHOT` query output from `commandin`
+- `STATUS_SNAPSHOT` query output from `commandin`, including layout and contract status
+- `SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, and `FAULTMG_CONTRACT` compatibility logs
 - `FAULTMG_MODE_TRANSITION` logs
 - `FAULTMG_CLEAR` and `FAULTMG_RECOVERY_TICK` logs
 - `LIGHTCTL_TARGET_SUMMARY` logs
+- host-side contract checks in `tests/test_light_contract.c`
 - host-side tests in `tests/test_light_fault_mode.c`
 - QEMU fault-injection and serial E2E scripts under `scripts/`
 
@@ -102,8 +104,21 @@ Recommended validation:
 
 ```bash
 make test
+make test-contract
 make qemu-test
 ```
+
+Latest accepted evidence is preserved under `test-results/report-v3/`.
+The serial E2E log includes:
+
+```text
+STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=ACTIVE ... layout=3 contract=OK
+STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=RECOVERING ... layout=3 contract=OK
+STATUS_SNAPSHOT fault=DEGRADED lifecycle=RECOVERING ... layout=3 contract=OK
+```
+
+This confirms that fault escalation, clear-to-recovery, recovery step-down, and
+runtime contract visibility are all covered by QEMU evidence.
 
 Useful focused checks:
 

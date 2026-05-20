@@ -33,6 +33,8 @@ This document records the minimum engineering requirements for the current Light
 | `REQ-ENG-002` | Host-side logic tests shall be runnable through one command. | `make test` |
 | `REQ-ENG-003` | QEMU smoke, fault injection, and serial E2E checks shall be runnable through one command. | `make qemu-test` |
 | `REQ-ENG-004` | Architecture, safety, requirements, test plan, and demo flow shall be documented for engineering review. | `docs/` |
+| `REQ-ENG-005` | Shared-memory, transport, fault snapshot, and channel contracts shall be validated explicitly. | `light_contract.c`, `make test-contract` |
+| `REQ-ENG-006` | Runtime logs shall expose contract and snapshot evidence suitable for QEMU regression checks. | `SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, `FAULTMG_CONTRACT`, `STATUS_SNAPSHOT` |
 
 ## Out of Current Scope
 

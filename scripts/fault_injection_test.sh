@@ -3,7 +3,11 @@ set -eu
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 IMAGE_FILE="${IMAGE_FILE:-build/loader.img}"
-LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lightctl-fault.XXXXXX")"
+if [ -n "${TEST_RESULTS_RUN_DIR:-}" ]; then
+    LOG_DIR="$TEST_RESULTS_RUN_DIR/fault-injection"
+else
+    LOG_DIR="$ROOT_DIR/${TEST_RESULTS_DIR:-test-results}/$(date +%Y%m%d-%H%M%S)/fault-injection"
+fi
 LOG_FILE="$LOG_DIR/qemu.log"
 UART_FIFO="$LOG_DIR/uart.fifo"
 QEMU_PID=""
@@ -17,7 +21,7 @@ stop_qemu() {
 
 cleanup() {
     stop_qemu
-    rm -rf "$LOG_DIR"
+    rm -f "$UART_FIFO"
 }
 
 wait_for_log() {
@@ -76,6 +80,8 @@ assert_no_pattern_between() {
 
 start_qemu() {
     cd "$ROOT_DIR"
+    mkdir -p "$LOG_DIR"
+    rm -f "$UART_FIFO"
     mkfifo "$UART_FIFO"
 
     qemu-system-aarch64 -machine virt,virtualization=on \
@@ -101,6 +107,7 @@ start_qemu() {
 restart_qemu() {
     exec 3>&-
     stop_qemu
+    cp "$LOG_FILE" "$LOG_DIR/qemu-degraded.log"
     rm -f "$UART_FIFO"
     : >"$LOG_FILE"
     QEMU_PID=""
@@ -153,4 +160,5 @@ restart_qemu
 run_safe_mode_scenario
 trap - EXIT
 cleanup
+cp "$LOG_FILE" "$LOG_DIR/qemu-safe-mode.log"
 echo "Fault integration test passed. Log file: $LOG_FILE"

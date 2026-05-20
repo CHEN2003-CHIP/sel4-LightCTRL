@@ -15,6 +15,19 @@ The system is split into small Microkit protection domains:
 | `fault_mg` | Fault lifecycle owner. It records fault events, owns fault mode transitions, publishes lifecycle state, and notifies GPIO and scheduler about fault mode updates. |
 | `vehicle_state` | Vehicle state update consumer. It writes speed, ignition, and brake pedal state into the shared state used by scheduler. |
 
+## Engineering Layering
+
+The protection domains are grouped into three engineering layers:
+
+| Layer | Domains | Boundary rule |
+| --- | --- | --- |
+| Input access | `commandin`, `vehicle_state` | Accept external input and normalize it; do not own final lighting policy or global fault mode. |
+| Policy decision | `scheduler`, `fault_mg` | Compute target output and own fault lifecycle; do not directly drive GPIO pins. |
+| Execution and hardware | `lightctl`, `gpio` | Convert target output into guarded GPIO actions and hardware-visible state. |
+
+This layering keeps the demo communication behavior unchanged while making the
+system easier to review as an embedded control project.
+
 ## Message Flow
 
 Normal lighting command path:
@@ -97,6 +110,18 @@ Current shared fields include:
 | `allow_flags` | `scheduler` | `lightctl`, diagnostics | Bitset representation of target output. |
 
 The separate `fault_mode_shared` memory region is a compact mode slot used by `fault_mg` to publish mode updates to domains that need a low-overhead fault-mode observation path.
+
+## Runtime Contract Checks
+
+Compatibility checks are centralized in `light_contract.c`:
+
+| Contract | Runtime evidence |
+| --- | --- |
+| Shared-memory layout version and fault snapshot bounds | `SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, `FAULTMG_CONTRACT fault_snapshot=...`, `STATUS_SNAPSHOT contract=...` |
+| Transport version, type, and payload length | `SCHED_MSG_REJECT`, `VEHICLE_STATE_MSG_REJECT`, `FAULTMG_MSG_REJECT`, `CMD_MSG_REJECT` |
+| Known Microkit channel endpoint table | `make test-contract` |
+
+These checks turn implicit assumptions into explicit engineering evidence.
 
 ## Fault Mode Ownership
 

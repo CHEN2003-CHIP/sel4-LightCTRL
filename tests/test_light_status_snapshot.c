@@ -17,6 +17,7 @@ static void test_snapshot_capture_reads_shared_state_consistently(void) {
     light_status_snapshot_t snapshot;
 
     memset(&shmem, 0, sizeof(shmem));
+    shmem.layout_version = LIGHT_SHARED_STATE_LAYOUT_V3;
     shmem.fault_mode = LIGHT_FAULT_MODE_DEGRADED;
     shmem.fault_lifecycle = LIGHT_FAULT_LIFECYCLE_RECOVERING;
     shmem.fault_recovery_ticks = 1U;
@@ -34,6 +35,8 @@ static void test_snapshot_capture_reads_shared_state_consistently(void) {
 
     expect_true(snapshot.fault_mode == LIGHT_FAULT_MODE_DEGRADED,
                 "snapshot should preserve fault mode");
+    expect_true(snapshot.contract_status == 0U,
+                "snapshot should preserve contract compatibility status");
     expect_true(snapshot.lifecycle == LIGHT_FAULT_LIFECYCLE_RECOVERING,
                 "snapshot should preserve lifecycle");
     expect_true(snapshot.recovery_ticks == 1U,
@@ -78,6 +81,8 @@ static void test_snapshot_format_emits_unified_status_line(void) {
                 "snapshot formatter should include vehicle speed");
     expect_true(strstr(buf, "target[low=1 high=0 left=0 right=0 marker=1 brake=1]") != NULL,
                 "snapshot formatter should include target output");
+    expect_true(strstr(buf, "contract=OK") != NULL,
+                "snapshot formatter should include contract status");
 }
 
 int main(void) {

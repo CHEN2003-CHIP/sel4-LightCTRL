@@ -2,11 +2,16 @@
 
 #include <stdio.h>
 
+#include "light_contract.h"
 #include "light_fault_mode.h"
 
 light_status_snapshot_t light_status_snapshot_capture(const volatile light_shmem_t *shmem) {
     light_status_snapshot_t snapshot;
+    light_contract_check_t contract;
 
+    snapshot.layout_version = shmem->layout_version;
+    contract = light_contract_check_shared_state(shmem);
+    snapshot.contract_status = (uint8_t)contract.status;
     snapshot.fault_mode = shmem->fault_mode;
     snapshot.lifecycle = shmem->fault_lifecycle;
     snapshot.recovery_ticks = shmem->fault_recovery_ticks;
@@ -30,7 +35,7 @@ light_status_snapshot_t light_status_snapshot_capture(const volatile light_shmem
 int light_status_snapshot_format(char *buf, size_t buf_size, light_status_snapshot_t snapshot) {
     return snprintf(buf,
                     buf_size,
-                    "STATUS_SNAPSHOT fault=%s lifecycle=%s recovery_ticks=%u/%u active_faults=0x%02x speed=%u ignition=%u brake_pedal=%u target[low=%u high=%u left=%u right=%u marker=%u brake=%u] allow=0x%02x last_fault=0x%02x total_faults=%u",
+                    "STATUS_SNAPSHOT fault=%s lifecycle=%s recovery_ticks=%u/%u active_faults=0x%02x speed=%u ignition=%u brake_pedal=%u target[low=%u high=%u left=%u right=%u marker=%u brake=%u] allow=0x%02x last_fault=0x%02x total_faults=%u layout=%u contract=%s",
                     light_fault_mode_name((fault_mode_t)snapshot.fault_mode),
                     light_fault_lifecycle_name((light_fault_lifecycle_t)snapshot.lifecycle),
                     (unsigned int)snapshot.recovery_ticks,
@@ -47,5 +52,7 @@ int light_status_snapshot_format(char *buf, size_t buf_size, light_status_snapsh
                     (unsigned int)snapshot.target_output.brake_on,
                     (unsigned int)snapshot.allow_flags,
                     (unsigned int)snapshot.last_fault_code,
-                    (unsigned int)snapshot.total_fault_count);
+                    (unsigned int)snapshot.total_fault_count,
+                    (unsigned int)snapshot.layout_version,
+                    light_contract_status_name((light_contract_status_t)snapshot.contract_status));
 }

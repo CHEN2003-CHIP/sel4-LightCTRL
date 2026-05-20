@@ -3,7 +3,11 @@ set -eu
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 IMAGE_FILE="${IMAGE_FILE:-build/loader.img}"
-LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/lightctl-serial-e2e.XXXXXX")"
+if [ -n "${TEST_RESULTS_RUN_DIR:-}" ]; then
+    LOG_DIR="$TEST_RESULTS_RUN_DIR/serial-e2e"
+else
+    LOG_DIR="$ROOT_DIR/${TEST_RESULTS_DIR:-test-results}/$(date +%Y%m%d-%H%M%S)/serial-e2e"
+fi
 LOG_FILE="$LOG_DIR/qemu.log"
 UART_FIFO="$LOG_DIR/uart.fifo"
 QEMU_PID=""
@@ -17,7 +21,7 @@ stop_qemu() {
 
 cleanup() {
     stop_qemu
-    rm -rf "$LOG_DIR"
+    rm -f "$UART_FIFO"
 }
 
 wait_for_log() {
@@ -77,6 +81,9 @@ send_text() {
 
 trap cleanup EXIT
 cd "$ROOT_DIR"
+mkdir -p "$LOG_DIR"
+rm -f "$UART_FIFO"
+: >"$LOG_FILE"
 mkfifo "$UART_FIFO"
 
 qemu-system-aarch64 -machine virt,virtualization=on \

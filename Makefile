@@ -28,10 +28,16 @@ BOARD := qemu_virt_aarch64
 MICROKIT_CONFIG := debug
 BUILD_DIR := build
 SYSTEM_DESCRIPTION := light.system
+TEST_RESULTS_DIR ?= test-results
+TEST_RUN_ID ?= $(shell date +%Y%m%d-%H%M%S 2>/dev/null || powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss")
+TEST_RESULTS_RUN_DIR ?= $(TEST_RESULTS_DIR)/$(TEST_RUN_ID)
 
 CPU := cortex-a53
 HOST_CC ?= cc
 TEST_HOOKS ?= 0
+export TEST_RESULTS_DIR
+export TEST_RUN_ID
+export TEST_RESULTS_RUN_DIR
 
 CC := $(TOOLCHAIN)-gcc
 LD := $(TOOLCHAIN)-ld
@@ -44,6 +50,7 @@ PROTOCOL_OBJS := light_protocol.o
 COMMAND_CODEC_OBJS := light_command_codec.o
 TRANSPORT_OBJS := light_transport.o
 SNAPSHOT_OBJS := light_status_snapshot.o
+CONTRACT_OBJS := light_contract.o
 OUTPUT_POLICY_OBJS := light_output_policy.o
 CONTROL_LOGIC_OBJS := light_control_logic.o
 VEHICLE_LOGIC_OBJS := light_vehicle_state.o
@@ -51,11 +58,11 @@ RUNTIME_GUARD_OBJS := light_runtime_guard.o
 FAULT_MODE_OBJS := light_fault_mode.o
 GPIO_OBJS := $(PRINTF_OBJS) $(FAULT_MODE_OBJS) gpio.o
 EXECUTION_PLAN_OBJS := light_execution_plan.o
-LIGHTCTL_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(EXECUTION_PLAN_OBJS) $(RUNTIME_GUARD_OBJS) $(FAULT_MODE_OBJS) lightctl.o
-COMMANDIN_OBJS := $(PRINTF_OBJS) $(COMMAND_CODEC_OBJS) $(TRANSPORT_OBJS) $(SNAPSHOT_OBJS) $(FAULT_MODE_OBJS) commandin.o
-FAULT_MG_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(FAULT_MODE_OBJS) faultmg.o
-SCHEDULER_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTROL_LOGIC_OBJS) $(OUTPUT_POLICY_OBJS) $(FAULT_MODE_OBJS) scheduler.o
-VEHICLE_STATE_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(VEHICLE_LOGIC_OBJS) vehicle_state.o
+LIGHTCTL_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTRACT_OBJS) $(EXECUTION_PLAN_OBJS) $(RUNTIME_GUARD_OBJS) $(FAULT_MODE_OBJS) lightctl.o
+COMMANDIN_OBJS := $(PRINTF_OBJS) $(COMMAND_CODEC_OBJS) $(TRANSPORT_OBJS) $(SNAPSHOT_OBJS) $(CONTRACT_OBJS) $(FAULT_MODE_OBJS) commandin.o
+FAULT_MG_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTRACT_OBJS) $(FAULT_MODE_OBJS) faultmg.o
+SCHEDULER_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTRACT_OBJS) $(CONTROL_LOGIC_OBJS) $(OUTPUT_POLICY_OBJS) $(FAULT_MODE_OBJS) scheduler.o
+VEHICLE_STATE_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTRACT_OBJS) $(FAULT_MODE_OBJS) $(VEHICLE_LOGIC_OBJS) vehicle_state.o
 #VMM_OBJS := $(PRINTF_OBJS) vmm.o psci.o smc.o fault.o vgic.o global_data.o vgic_v2.o
 
 BOARD_DIR := $(MICROKIT_SDK)/board/$(BOARD)/$(MICROKIT_CONFIG)
@@ -67,7 +74,7 @@ IMAGES_PART_4 := gpio.elf lightctl.elf commandin.elf faultmg.elf
 IMAGES_PART_5 := gpio.elf lightctl.elf commandin.elf faultmg.elf scheduler.elf vehicle_state.elf
 IMAGES_BUILD := $(IMAGES_PART_5)
 LEGACY_TARGETS := part1 part2 part3 part4 part5
-HOST_TEST_TARGETS := test-policy test-protocol test-command test-transport test-snapshot test-control test-vehicle test-execution test-runtime test-fault test-fault-transport
+HOST_TEST_TARGETS := test-policy test-protocol test-contract test-command test-transport test-snapshot test-control test-vehicle test-execution test-runtime test-fault test-fault-transport
 QEMU_TEST_TARGETS := smoke test-integration-fault test-serial-e2e
 #IMAGES_PART_4 := serial_server.elf client.elf wordle_server.elf vmm.elf
 # Note that these warnings being disabled is to avoid compilation errors while in the middle of completing each exercise part
@@ -112,12 +119,37 @@ release:
 smoke: build
 	./scripts/smoke_test.sh
 
-test: $(HOST_TEST_TARGETS)
+test:
+	@mkdir -p "$(TEST_RESULTS_RUN_DIR)"
+	@bash -c 'set -euo pipefail; \
+		summary="$(TEST_RESULTS_RUN_DIR)/host-summary.txt"; \
+		printf "Host test run: $(TEST_RUN_ID)\n" > "$$summary"; \
+		for target in $(HOST_TEST_TARGETS); do \
+			printf "\n== %s ==\n" "$$target" | tee -a "$$summary"; \
+			if $(MAKE) "$$target" 2>&1 | tee "$(TEST_RESULTS_RUN_DIR)/$$target.log"; then \
+				printf "PASS %s\n" "$$target" >> "$$summary"; \
+			else \
+				printf "FAIL %s\n" "$$target" >> "$$summary"; \
+				exit 1; \
+			fi; \
+		done; \
+		printf "\nHost test logs: %s\n" "$(TEST_RESULTS_RUN_DIR)"'
 
 qemu-test:
-	$(MAKE) smoke
-	$(MAKE) test-integration-fault
-	$(MAKE) test-serial-e2e
+	@mkdir -p "$(TEST_RESULTS_RUN_DIR)"
+	@bash -c 'set -euo pipefail; \
+		summary="$(TEST_RESULTS_RUN_DIR)/qemu-summary.txt"; \
+		printf "QEMU test run: $(TEST_RUN_ID)\n" > "$$summary"; \
+		for target in $(QEMU_TEST_TARGETS); do \
+			printf "\n== %s ==\n" "$$target" | tee -a "$$summary"; \
+			if $(MAKE) "$$target" 2>&1 | tee "$(TEST_RESULTS_RUN_DIR)/$$target.make.log"; then \
+				printf "PASS %s\n" "$$target" >> "$$summary"; \
+			else \
+				printf "FAIL %s\n" "$$target" >> "$$summary"; \
+				exit 1; \
+			fi; \
+		done; \
+		printf "\nQEMU test logs: %s\n" "$(TEST_RESULTS_RUN_DIR)"'
 
 test-integration-fault:
 	$(MAKE) build BUILD_DIR=build-test-hooks TEST_HOOKS=1
@@ -134,6 +166,10 @@ test-protocol: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_protocol.c light_protocol.c -o build/test_light_protocol
 	./build/test_light_protocol
 
+test-contract: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_contract.c light_contract.c light_fault_mode.c -o build/test_light_contract
+	./build/test_light_contract
+
 test-command: | directories
 	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_command_codec.c light_command_codec.c -o build/test_light_command_codec
 	./build/test_light_command_codec
@@ -143,7 +179,7 @@ test-transport: | directories
 	./build/test_light_transport
 
 test-snapshot: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_status_snapshot.c light_status_snapshot.c light_fault_mode.c -o build/test_light_status_snapshot
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_status_snapshot.c light_status_snapshot.c light_contract.c light_fault_mode.c -o build/test_light_status_snapshot
 	./build/test_light_status_snapshot
 
 test-control: | directories
@@ -212,6 +248,7 @@ help:
 	@echo "  qemu-test Run smoke, fault-injection, and serial E2E QEMU tests"
 	@echo "  test-policy Run host-side policy unit tests"
 	@echo "  test-protocol Run shared-state compatibility tests"
+	@echo "  test-contract Run interface contract compatibility tests"
 	@echo "  test-command Run command decoding tests"
 	@echo "  test-transport Run transport parser and dispatch tests"
 	@echo "  test-snapshot Run unified status snapshot tests"

@@ -17,6 +17,10 @@ Explain the protection-domain split:
 
 Point out that Microkit channel IDs are centralized in `include/light_channels.h` and mirrored by `light.system`.
 
+Then show `docs/engineering_upgrade.md` and explain the three engineering
+themes: explicit contracts, centralized fault ownership, and repeatable
+Ubuntu/QEMU validation.
+
 ## 2. Build
 
 Run:
@@ -40,6 +44,18 @@ make test
 ```
 
 Explain that this validates policy, protocol, command codec, transport parsing, snapshot formatting, control logic, vehicle state, execution planning, runtime guard, and fault lifecycle logic without booting QEMU.
+
+For the contract-focused check, run:
+
+```bash
+make test-contract
+```
+
+Expected evidence:
+
+- shared-memory layout version is checked explicitly
+- transport version/type/length checks reject incompatible messages
+- fault snapshot bounds and channel IDs are covered by a host-side test
 
 ## 4. QEMU Smoke Test
 
@@ -94,6 +110,7 @@ Expected evidence:
 - `SAFE_MODE` appears after repeated hardware-state errors
 - `clear` enters `RECOVERING`, not `NORMAL`
 - recovery ticks step down one level at a time
+- `STATUS_SNAPSHOT` includes `contract=OK`
 
 ## 7. One-Command QEMU Validation
 
@@ -104,6 +121,13 @@ make qemu-test
 ```
 
 Use this as the final demonstration command when the environment has QEMU and the Microkit SDK configured.
+The run writes persistent evidence under `test-results/<run-id>/`, including
+the per-target make logs and QEMU serial logs. For a named report run:
+
+```bash
+make test TEST_RUN_ID=report-v1
+make qemu-test TEST_RUN_ID=report-v1
+```
 
 ## 8. If the Environment Fails
 

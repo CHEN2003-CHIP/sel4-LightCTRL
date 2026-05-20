@@ -14,6 +14,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "logger.h"
+#include "light_contract.h"
 #include "light_fault_mode.h"
 #include "light_execution_plan.h"
 #include "light_runtime_guard.h"
@@ -182,10 +183,15 @@ static void sync_outputs(void) {
     size_t i;
     light_target_output_t target = (light_target_output_t)g_shmem->target_output;
     light_execution_plan_t plan;
+    light_contract_check_t contract = light_contract_check_shared_state(g_shmem);
 
     g_fault_mode_cache = (fault_mode_t)g_shmem->fault_mode;
     plan = light_execution_plan_build(g_execution_state, target);
 
+    LOG_INFO("LIGHTCTL_CONTRACT shared_state=%s expected=%u actual=%u",
+             light_contract_status_name(contract.status),
+             (unsigned int)contract.expected,
+             (unsigned int)contract.actual);
     LOG_INFO("--- LightCtrl State Check ---");
     LOG_INFO("LIGHTCTL_SYNC allow_flags=0x%02x brake=%u left=%u right=%u low=%u high=%u marker=%u actions=%u",
              (unsigned int)g_shmem->allow_flags,

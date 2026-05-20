@@ -4,9 +4,14 @@ This test plan maps requirements to runnable validation commands. Host-side test
 
 ## Test Commands
 
+All aggregate test runs write logs under `test-results/<run-id>/` by default.
+Set `TEST_RUN_ID` to choose a stable directory name, for example
+`make qemu-test TEST_RUN_ID=vm-20260520`.
+
 | Command | Scope | Expected result |
 | --- | --- | --- |
 | `make test` | All host-side unit tests. | Every test binary builds and prints its pass message. |
+| `make test-contract` | Interface and compatibility contracts. | Shared-state layout, transport wire shape, fault snapshot bounds, and known channel table pass. |
 | `make qemu-test` | Smoke, fault injection, and serial E2E tests. | QEMU boots, expected logs are observed, and scripts exit 0. |
 | `make build` | Full Microkit image build. | `build/loader.img` and `build/report.txt` are produced. |
 | `make smoke` | Minimal QEMU boot and command propagation. | Core domains initialize and basic light commands propagate. |
@@ -34,14 +39,32 @@ This test plan maps requirements to runnable validation commands. Host-side test
 | `REQ-ENG-002` | `make test` | All host-side tests run from one command. |
 | `REQ-ENG-003` | `make qemu-test` | All QEMU validation scripts run from one command. |
 | `REQ-ENG-004` | Review `docs/` | Review materials are present and consistent. |
+| `REQ-ENG-005` | `make test-contract`, `make test-snapshot` | Contract checks and status snapshot contract field. |
+| `REQ-ENG-006` | `make smoke`, `make test-serial-e2e` | Contract logs and `STATUS_SNAPSHOT contract=OK`. |
 
 ## Recommended Review Sequence
 
 ```bash
 make help
 make test
+make test-contract
 make build
 make qemu-test
 ```
+
+After a run, preserve these files for review:
+
+- `test-results/<run-id>/host-summary.txt`
+- `test-results/<run-id>/qemu-summary.txt`
+- `test-results/<run-id>/*.log`
+- `test-results/<run-id>/*/qemu.log`
+
+Latest accepted evidence:
+
+- Run id: `report-v3`
+- Host summary: `test-results/report-v3/host-summary.txt`
+- QEMU summary: `test-results/report-v3/qemu-summary.txt`
+- Result: all host-side tests and all QEMU tests passed.
+- Key serial evidence: `STATUS_SNAPSHOT ... layout=3 contract=OK`.
 
 If `make qemu-test` fails because QEMU or the Microkit SDK is missing, run `make test` first and record the environment gap separately.

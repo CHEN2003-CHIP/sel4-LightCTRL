@@ -18,9 +18,9 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include "logger.h"
+#include "light_contract.h"
 #include "light_fault_mode.h"
 #include "light_protocol.h"
-#include "light_status_snapshot.h"
 #include "light_transport.h"
 
 
@@ -132,7 +132,7 @@ void uart_handle_irq() {
  * @param str 待发送的字符串指针
  * @return 无
  */
-void uart_put_str(char *str) {
+void uart_put_str(const char *str) {
     while (*str) {
         uart_put_char(*str);
         str++;
@@ -166,6 +166,26 @@ static void uart_put_hex8(uint8_t value) {
     uart_put_char(hex_digits[value & 0x0fU]);
 }
 
+static const char *shared_state_contract_name(void) {
+    if (g_shmem->layout_version != LIGHT_SHARED_STATE_LAYOUT_V3) {
+        return "LAYOUT_MISMATCH";
+    }
+    if (g_shmem->fault_mode > (uint8_t)LIGHT_FAULT_MODE_SAFE_MODE) {
+        return "FAULT_MODE";
+    }
+    if (g_shmem->fault_lifecycle > (uint8_t)LIGHT_FAULT_LIFECYCLE_RECOVERING) {
+        return "FAULT_LIFECYCLE";
+    }
+    if (g_shmem->fault_recovery_ticks > light_fault_recovery_window_ticks()) {
+        return "FAULT_RECOVERY";
+    }
+    if ((g_shmem->active_fault_mask & (uint8_t)~0x0fU) != 0U) {
+        return "FAULT_MASK";
+    }
+
+    return "OK";
+}
+
 /**
  * @brief 组件初始化入口函数
  * @details Microkit框架初始化阶段调用，完成UART初始化并打印启动日志
@@ -192,6 +212,19 @@ static void write_transport_message(light_transport_message_t message) {
 
 static void dispatch_transport_message(light_transport_message_t message) {
     light_transport_route_t route = light_transport_route_for_message(message);
+    light_contract_check_t contract =
+        light_contract_check_transport_message(message, (light_transport_msg_type_t)message.type);
+
+    if (contract.status != LIGHT_CONTRACT_OK) {
+        LOG_ERROR("CMD_MSG_REJECT contract=%s expected=%u actual=%u type=%u len=%u version=%u",
+                  light_contract_status_name(contract.status),
+                  (unsigned int)contract.expected,
+                  (unsigned int)contract.actual,
+                  (unsigned int)message.type,
+                  (unsigned int)message.len,
+                  (unsigned int)message.version);
+        return;
+    }
 
     write_transport_message(message);
 
@@ -215,9 +248,9 @@ static void dispatch_transport_message(light_transport_message_t message) {
 
 static void emit_status_snapshot(void) {
     uart_put_str("STATUS_SNAPSHOT fault=");
-    uart_put_str((char *)light_fault_mode_name((fault_mode_t)g_shmem->fault_mode));
+    uart_put_str(light_fault_mode_name((fault_mode_t)g_shmem->fault_mode));
     uart_put_str(" lifecycle=");
-    uart_put_str((char *)light_fault_lifecycle_name((light_fault_lifecycle_t)g_shmem->fault_lifecycle));
+    uart_put_str(light_fault_lifecycle_name((light_fault_lifecycle_t)g_shmem->fault_lifecycle));
     uart_put_str(" recovery_ticks=");
     uart_put_u32(g_shmem->fault_recovery_ticks);
     uart_put_char('/');
@@ -248,6 +281,10 @@ static void emit_status_snapshot(void) {
     uart_put_hex8(g_shmem->last_fault_code);
     uart_put_str(" total_faults=");
     uart_put_u32(g_shmem->total_fault_count);
+    uart_put_str(" layout=");
+    uart_put_u32(g_shmem->layout_version);
+    uart_put_str(" contract=");
+    uart_put_str(shared_state_contract_name());
     uart_put_str("\r");
 }
 

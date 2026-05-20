@@ -2,6 +2,7 @@
 #include <microkit.h>
 
 #include "include/logger.h"
+#include "light_contract.h"
 #include "light_control_logic.h"
 #include "light_fault_mode.h"
 #include "light_protocol.h"
@@ -78,8 +79,15 @@ void init(void) {
     g_shmem->target_output = light_target_output_init();
     recompute_target_output();
 
-    LOG_INFO("SCHED_INIT module=scheduler status=ready layout=%u",
-             (unsigned int)g_shmem->layout_version);
+    {
+        light_contract_check_t contract = light_contract_check_shared_state(g_shmem);
+        LOG_INFO("SCHED_CONTRACT shared_state=%s expected=%u actual=%u",
+                 light_contract_status_name(contract.status),
+                 (unsigned int)contract.expected,
+                 (unsigned int)contract.actual);
+        LOG_INFO("SCHED_INIT module=scheduler status=ready layout=%u",
+                 (unsigned int)g_shmem->layout_version);
+    }
 }
 
 void notified(microkit_channel ch) {
@@ -89,10 +97,14 @@ void notified(microkit_channel ch) {
         light_transport_message_t message = *(light_transport_message_t *)input_buffer;
         light_control_command_result_t result;
 
-        if (message.version != LIGHT_TRANSPORT_VERSION
-            || message.type != LIGHT_TRANSPORT_MSG_LIGHT_CMD
-            || message.len != sizeof(message.payload.light_cmd)) {
-            LOG_INFO("SCHED_MSG_REJECT type=%u len=%u version=%u",
+        light_contract_check_t contract =
+            light_contract_check_transport_message(message, LIGHT_TRANSPORT_MSG_LIGHT_CMD);
+
+        if (contract.status != LIGHT_CONTRACT_OK) {
+            LOG_INFO("SCHED_MSG_REJECT contract=%s expected=%u actual=%u type=%u len=%u version=%u",
+                     light_contract_status_name(contract.status),
+                     (unsigned int)contract.expected,
+                     (unsigned int)contract.actual,
                      (unsigned int)message.type,
                      (unsigned int)message.len,
                      (unsigned int)message.version);

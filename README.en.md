@@ -2,6 +2,12 @@
 
 LightDemo is a seL4 Microkit demo project for an automotive light-control pipeline. The repository models the full path from UART command input to scheduling, light control, GPIO operations, and fault logging on the default `qemu_virt_aarch64` target.
 
+The current baseline is intended to be reviewed as an engineering-grade
+embedded project, not only as a tutorial demo. See
+`docs/engineering_upgrade.md` for the contract model, validation flow, and
+presentation highlights. See `docs/validation_report.md` for the latest
+accepted validation evidence.
+
 ## Overview
 
 The current mainline flow is:
@@ -56,6 +62,7 @@ Recommended targets:
 - `make release`
 - `make smoke`
 - `make test`
+- `make test-contract`
 - `make qemu-test`
 - `make test-transport`
 - `make test-snapshot`
@@ -66,6 +73,14 @@ Recommended full build:
 
 ```bash
 make build
+```
+
+Aggregate test logs are written to `test-results/<run-id>/`. For a report run,
+use a stable id before copying files back from the Ubuntu VM:
+
+```bash
+make test TEST_RUN_ID=report-v1
+make qemu-test TEST_RUN_ID=report-v1
 ```
 
 Or with an explicit SDK path:

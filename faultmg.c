@@ -9,6 +9,7 @@
 #include <stddef.h>
 
 #include "printf.h"
+#include "light_contract.h"
 #include "light_fault_mode.h"
 #include "logger.h"
 #include "light_protocol.h"
@@ -131,6 +132,17 @@ void init(void) {
     light_fault_state_reset(&g_fault_state);
     total_error_count = 0;
     publish_fault_state();
+    {
+        light_contract_check_t contract =
+            light_contract_check_fault_snapshot((uint8_t)g_fault_state.mode,
+                                                (uint8_t)g_fault_state.lifecycle,
+                                                g_fault_state.recovery_ticks,
+                                                g_fault_state.active_fault_mask);
+        LOG_INFO("FAULTMG_CONTRACT fault_snapshot=%s expected=%u actual=%u",
+                 light_contract_status_name(contract.status),
+                 (unsigned int)contract.expected,
+                 (unsigned int)contract.actual);
+    }
     LOG_INFO("FAULT_INIT module=faultmg status=ready");
     LOG_INFO("FAULT_MGMT: initialized\n");
 }
@@ -147,29 +159,41 @@ void notified(microkit_channel channel) {
         light_transport_message_t message =
             *(volatile light_transport_message_t *)test_input_buffer;
 
-        if (message.version != LIGHT_TRANSPORT_VERSION) {
-            LOG_ERROR("FAULTMG: invalid transport version=%u",
-                      (unsigned int)message.version);
-            return;
-        }
-
         switch ((light_transport_msg_type_t)message.type) {
             case LIGHT_TRANSPORT_MSG_FAULT_INJECT:
-                if (message.len != sizeof(message.payload.fault_error_code)) {
-                    LOG_ERROR("FAULTMG: invalid fault inject len=%u",
-                              (unsigned int)message.len);
+            {
+                light_contract_check_t contract =
+                    light_contract_check_transport_message(message, LIGHT_TRANSPORT_MSG_FAULT_INJECT);
+                if (contract.status != LIGHT_CONTRACT_OK) {
+                    LOG_ERROR("FAULTMG_MSG_REJECT contract=%s expected=%u actual=%u type=%u len=%u version=%u",
+                              light_contract_status_name(contract.status),
+                              (unsigned int)contract.expected,
+                              (unsigned int)contract.actual,
+                              (unsigned int)message.type,
+                              (unsigned int)message.len,
+                              (unsigned int)message.version);
                     return;
                 }
                 handle_fault_event(channel, message.payload.fault_error_code);
                 return;
+            }
             case LIGHT_TRANSPORT_MSG_FAULT_CLEAR:
-                if (message.len != sizeof(message.payload.fault_clear_scope)) {
-                    LOG_ERROR("FAULTMG: invalid fault clear len=%u",
-                              (unsigned int)message.len);
+            {
+                light_contract_check_t contract =
+                    light_contract_check_transport_message(message, LIGHT_TRANSPORT_MSG_FAULT_CLEAR);
+                if (contract.status != LIGHT_CONTRACT_OK) {
+                    LOG_ERROR("FAULTMG_MSG_REJECT contract=%s expected=%u actual=%u type=%u len=%u version=%u",
+                              light_contract_status_name(contract.status),
+                              (unsigned int)contract.expected,
+                              (unsigned int)contract.actual,
+                              (unsigned int)message.type,
+                              (unsigned int)message.len,
+                              (unsigned int)message.version);
                     return;
                 }
                 handle_fault_clear(message.payload.fault_clear_scope);
                 return;
+            }
             default:
                 LOG_ERROR("FAULTMG: unsupported transport message type=%u len=%u",
                           (unsigned int)message.type,

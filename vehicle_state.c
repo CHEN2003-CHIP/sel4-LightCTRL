@@ -1,6 +1,7 @@
 #include <microkit.h>
 
 #include "logger.h"
+#include "light_contract.h"
 #include "light_protocol.h"
 #include "light_transport.h"
 #include "light_vehicle_state.h"
@@ -30,10 +31,14 @@ void notified(microkit_channel ch) {
         light_vehicle_state_request_t request;
         light_vehicle_state_update_result_t result;
 
-        if (message.version != LIGHT_TRANSPORT_VERSION
-            || message.type != LIGHT_TRANSPORT_MSG_VEHICLE_STATE_UPDATE
-            || message.len != sizeof(message.payload.vehicle_state_update)) {
-            LOG_INFO("VEHICLE_STATE_MSG_REJECT type=%u len=%u version=%u",
+        light_contract_check_t contract =
+            light_contract_check_transport_message(message, LIGHT_TRANSPORT_MSG_VEHICLE_STATE_UPDATE);
+
+        if (contract.status != LIGHT_CONTRACT_OK) {
+            LOG_INFO("VEHICLE_STATE_MSG_REJECT contract=%s expected=%u actual=%u type=%u len=%u version=%u",
+                     light_contract_status_name(contract.status),
+                     (unsigned int)contract.expected,
+                     (unsigned int)contract.actual,
                      (unsigned int)message.type,
                      (unsigned int)message.len,
                      (unsigned int)message.version);

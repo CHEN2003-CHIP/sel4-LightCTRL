@@ -11,6 +11,39 @@
    '-.___  seL4 Microkit Light Demo  __.-'
 ```
 
+## Engineering Baseline Notes
+
+The current baseline is intended to be reviewed as an engineering-grade
+seL4/Microkit lighting-control project, not only as a tutorial demo.
+
+Key review entry points:
+
+- `docs/engineering_upgrade.md`: engineering upgrade summary, interface
+  contracts, validation model, and presentation highlights.
+- `docs/architecture.md`: protection-domain boundaries, message flow, shared
+  memory layout, and runtime contract evidence.
+- `docs/safety_case.md`: fault taxonomy, lifecycle, recovery policy, and
+  observable evidence.
+- `docs/test_plan.md`: host-side and QEMU validation commands.
+- `docs/validation_report.md`: latest accepted validation evidence.
+
+Useful validation commands on Ubuntu 22.04:
+
+```bash
+make test
+make test-contract
+make build
+make qemu-test
+```
+
+Aggregate test logs are saved under `test-results/<run-id>/`. For a report run,
+use a stable id before copying files back from the Ubuntu VM:
+
+```bash
+make test TEST_RUN_ID=report-v1
+make qemu-test TEST_RUN_ID=report-v1
+```
+
 一个基于 seL4 + Microkit 的汽车车灯控制演示工程。
 
 它不是单纯的“按键开灯”小实验，而是把一条更像工程项目的链路放在同一个仓库里：
