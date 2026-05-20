@@ -125,8 +125,10 @@ The run writes persistent evidence under `test-results/<run-id>/`, including
 the per-target make logs and QEMU serial logs. For a named report run:
 
 ```bash
-make test TEST_RUN_ID=report-v1
-make qemu-test TEST_RUN_ID=report-v1
+make test TEST_RUN_ID=report-v6
+make build
+make qemu-test TEST_RUN_ID=report-v6
+make evidence TEST_RUN_ID=report-v6
 ```
 
 ## 8. If the Environment Fails

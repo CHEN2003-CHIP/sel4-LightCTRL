@@ -65,6 +65,13 @@ static void test_transport_contract_checks_version_type_and_len(void) {
                 "transport version mismatch should be explicit");
 
     message.version = LIGHT_TRANSPORT_VERSION;
+    message.type = LIGHT_TRANSPORT_MSG_FAULT_CLEAR;
+    message.len = sizeof(message.payload.fault_clear_scope);
+    check = light_contract_check_transport_message(message, LIGHT_TRANSPORT_MSG_LIGHT_CMD);
+    expect_true(check.status == LIGHT_CONTRACT_TRANSPORT_TYPE,
+                "transport type mismatch should be explicit");
+
+    message.type = LIGHT_TRANSPORT_MSG_LIGHT_CMD;
     message.len = 0U;
     check = light_contract_check_transport_message(message, LIGHT_TRANSPORT_MSG_LIGHT_CMD);
     expect_true(check.status == LIGHT_CONTRACT_TRANSPORT_LENGTH,

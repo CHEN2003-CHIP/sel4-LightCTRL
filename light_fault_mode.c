@@ -200,6 +200,62 @@ light_fault_event_t light_fault_event_create(uint8_t error_code, fault_mode_t cu
     return event;
 }
 
+void light_fault_history_reset(light_fault_history_t *history) {
+    uint8_t i;
+
+    history->next_index = 0U;
+    history->count = 0U;
+    history->next_sequence = 1U;
+    for (i = 0U; i < LIGHT_FAULT_HISTORY_CAPACITY; i++) {
+        history->records[i].sequence = 0U;
+        history->records[i].event_type = LIGHT_FAULT_HISTORY_EVENT_ERROR;
+        history->records[i].error_code = 0U;
+        history->records[i].mode = LIGHT_FAULT_MODE_NORMAL;
+        history->records[i].lifecycle = LIGHT_FAULT_LIFECYCLE_STABLE;
+        history->records[i].active_fault_mask = 0U;
+        history->records[i].total_errors = 0U;
+    }
+}
+
+void light_fault_history_record(light_fault_history_t *history,
+                                light_fault_history_record_t *record,
+                                light_fault_history_event_type_t event_type,
+                                uint8_t error_code,
+                                const light_fault_state_t *state,
+                                uint32_t total_errors) {
+    record->sequence = history->next_sequence++;
+    record->event_type = event_type;
+    record->error_code = error_code;
+    record->mode = state->mode;
+    record->lifecycle = state->lifecycle;
+    record->active_fault_mask = state->active_fault_mask;
+    record->total_errors = total_errors;
+
+    history->records[history->next_index] = *record;
+    history->next_index = (uint8_t)((history->next_index + 1U) % LIGHT_FAULT_HISTORY_CAPACITY);
+    if (history->count < LIGHT_FAULT_HISTORY_CAPACITY) {
+        history->count++;
+    }
+}
+
+bool light_fault_history_latest(const light_fault_history_t *history,
+                                light_fault_history_record_t *record) {
+    uint8_t latest_index;
+
+    if (history->count == 0U) {
+        return false;
+    }
+
+    if (history->next_index == 0U) {
+        latest_index = LIGHT_FAULT_HISTORY_CAPACITY - 1U;
+    } else {
+        latest_index = (uint8_t)(history->next_index - 1U);
+    }
+
+    *record = history->records[latest_index];
+    return true;
+}
+
 uint8_t light_fault_mode_transport_encode(fault_mode_t mode) {
     switch (mode) {
         case LIGHT_FAULT_MODE_NORMAL:
@@ -255,6 +311,36 @@ const char *light_fault_lifecycle_name(light_fault_lifecycle_t lifecycle) {
             return "ACTIVE";
         case LIGHT_FAULT_LIFECYCLE_RECOVERING:
             return "RECOVERING";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+const char *light_fault_history_event_type_name(light_fault_history_event_type_t event_type) {
+    switch (event_type) {
+        case LIGHT_FAULT_HISTORY_EVENT_ERROR:
+            return "ERROR";
+        case LIGHT_FAULT_HISTORY_EVENT_CLEAR:
+            return "CLEAR";
+        case LIGHT_FAULT_HISTORY_EVENT_RECOVERY_TICK:
+            return "RECOVERY_TICK";
+        default:
+            return "UNKNOWN";
+    }
+}
+
+const char *light_fault_code_name(uint8_t error_code) {
+    switch (error_code) {
+        case 0U:
+            return "NONE";
+        case LIGHT_ERR_SPEED_LIMIT:
+            return "SPEED_LIMIT";
+        case LIGHT_ERR_MODE_CONFLICT:
+            return "MODE_CONFLICT";
+        case LIGHT_ERR_INVALID_CMD:
+            return "INVALID_CMD";
+        case LIGHT_ERR_HW_STATE_ERR:
+            return "HW_STATE_ERR";
         default:
             return "UNKNOWN";
     }

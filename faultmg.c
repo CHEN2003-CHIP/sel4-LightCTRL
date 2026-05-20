@@ -21,6 +21,7 @@ uintptr_t shared_memory_base_vaddr;
 
 uint32_t total_error_count = 0;
 static light_fault_state_t g_fault_state;
+static uint32_t g_fault_history_sequence = 0U;
 static light_shmem_t *g_shmem = NULL;
 
 static void publish_fault_state(void) {
@@ -85,6 +86,19 @@ static void log_fault_decision(const char *tag, fault_decision_t decision, uint8
              (unsigned int)light_fault_recovery_window_ticks());
 }
 
+static void log_fault_history(light_fault_history_event_type_t event_type, uint8_t error_code) {
+    g_fault_history_sequence++;
+    LOG_INFO("FAULTMG_HISTORY seq=%u event=%s code=0x%02x code_name=%s mode=%s lifecycle=%s active=0x%02x total=%u",
+             (unsigned int)g_fault_history_sequence,
+             light_fault_history_event_type_name(event_type),
+             (unsigned int)error_code,
+             light_fault_code_name(error_code),
+             light_fault_mode_name(g_fault_state.mode),
+             light_fault_lifecycle_name(g_fault_state.lifecycle),
+             (unsigned int)g_fault_state.active_fault_mask,
+             total_error_count);
+}
+
 static void handle_fault_event(microkit_channel source_channel, uint8_t error_code) {
     fault_decision_t decision;
     light_fault_event_t event;
@@ -98,6 +112,7 @@ static void handle_fault_event(microkit_channel source_channel, uint8_t error_co
              event.error_code,
              total_error_count);
     log_fault_decision("FAULTMG_MODE_TRANSITION", decision, event.error_code);
+    log_fault_history(LIGHT_FAULT_HISTORY_EVENT_ERROR, event.error_code);
     print_error_details(error_code);
     publish_fault_state();
 }
@@ -116,12 +131,15 @@ static void handle_fault_clear(uint8_t scope) {
     if (g_fault_state.active_fault_mask != 0U) {
         decision = light_fault_mode_clear_active(&g_fault_state);
         log_fault_decision("FAULTMG_CLEAR", decision, 0U);
+        log_fault_history(LIGHT_FAULT_HISTORY_EVENT_CLEAR, 0U);
     } else if (g_fault_state.lifecycle == LIGHT_FAULT_LIFECYCLE_RECOVERING) {
         decision = light_fault_mode_observe_recovery(&g_fault_state);
         log_fault_decision("FAULTMG_RECOVERY_TICK", decision, 0U);
+        log_fault_history(LIGHT_FAULT_HISTORY_EVENT_RECOVERY_TICK, 0U);
     } else {
         decision = light_fault_mode_clear_active(&g_fault_state);
         log_fault_decision("FAULTMG_CLEAR", decision, 0U);
+        log_fault_history(LIGHT_FAULT_HISTORY_EVENT_CLEAR, 0U);
     }
 
     publish_fault_state();
@@ -130,6 +148,7 @@ static void handle_fault_clear(uint8_t scope) {
 void init(void) {
     g_shmem = (light_shmem_t *)shared_memory_base_vaddr;
     light_fault_state_reset(&g_fault_state);
+    g_fault_history_sequence = 0U;
     total_error_count = 0;
     publish_fault_state();
     {
@@ -165,7 +184,7 @@ void notified(microkit_channel channel) {
                 light_contract_check_t contract =
                     light_contract_check_transport_message(message, LIGHT_TRANSPORT_MSG_FAULT_INJECT);
                 if (contract.status != LIGHT_CONTRACT_OK) {
-                    LOG_ERROR("FAULTMG_MSG_REJECT contract=%s expected=%u actual=%u type=%u len=%u version=%u",
+                    LOG_ERROR("FAULTMG_CONTRACT_REJECT reason=%s expected=%u actual=%u type=%u len=%u version=%u",
                               light_contract_status_name(contract.status),
                               (unsigned int)contract.expected,
                               (unsigned int)contract.actual,
@@ -182,7 +201,7 @@ void notified(microkit_channel channel) {
                 light_contract_check_t contract =
                     light_contract_check_transport_message(message, LIGHT_TRANSPORT_MSG_FAULT_CLEAR);
                 if (contract.status != LIGHT_CONTRACT_OK) {
-                    LOG_ERROR("FAULTMG_MSG_REJECT contract=%s expected=%u actual=%u type=%u len=%u version=%u",
+                    LOG_ERROR("FAULTMG_CONTRACT_REJECT reason=%s expected=%u actual=%u type=%u len=%u version=%u",
                               light_contract_status_name(contract.status),
                               (unsigned int)contract.expected,
                               (unsigned int)contract.actual,
@@ -195,12 +214,17 @@ void notified(microkit_channel channel) {
                 return;
             }
             default:
-                LOG_ERROR("FAULTMG: unsupported transport message type=%u len=%u",
+                LOG_ERROR("FAULTMG_CONTRACT_REJECT reason=TRANSPORT_TYPE expected=%u actual=%u type=%u len=%u version=%u",
+                          (unsigned int)LIGHT_TRANSPORT_MSG_FAULT_INJECT,
                           (unsigned int)message.type,
-                          (unsigned int)message.len);
+                          (unsigned int)message.type,
+                          (unsigned int)message.len,
+                          (unsigned int)message.version);
                 return;
         }
     }
 
-    LOG_ERROR("FAULTMG: unknown channel (channel: %d)\n", channel);
+    LOG_ERROR("FAULTMG_CONTRACT_REJECT reason=UNKNOWN_CHANNEL expected=%u actual=%u type=0 len=0 version=0",
+              (unsigned int)LIGHT_CH_FAULTMG_FROM_COMMANDIN,
+              (unsigned int)channel);
 }

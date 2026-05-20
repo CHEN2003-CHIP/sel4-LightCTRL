@@ -118,7 +118,7 @@ Compatibility checks are centralized in `light_contract.c`:
 | Contract | Runtime evidence |
 | --- | --- |
 | Shared-memory layout version and fault snapshot bounds | `SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, `FAULTMG_CONTRACT fault_snapshot=...`, `STATUS_SNAPSHOT contract=...` |
-| Transport version, type, and payload length | `SCHED_MSG_REJECT`, `VEHICLE_STATE_MSG_REJECT`, `FAULTMG_MSG_REJECT`, `CMD_MSG_REJECT` |
+| Transport version, type, and payload length | `SCHED_CONTRACT_REJECT`, `VEHICLE_STATE_CONTRACT_REJECT`, `FAULTMG_CONTRACT_REJECT`, `CMD_CONTRACT_REJECT` |
 | Known Microkit channel endpoint table | `make test-contract` |
 
 These checks turn implicit assumptions into explicit engineering evidence.

@@ -10,7 +10,7 @@ This document records the minimum engineering requirements for the current Light
 | `REQ-LIGHT-002` | High beam shall require a valid low-beam request and shall be blocked when vehicle speed is below 10 km/h. | `light_control_logic.c`, `light_runtime_guard.c` |
 | `REQ-LIGHT-003` | Left and right turn requests shall be mutually exclusive at the operator request level. | `light_control_logic.c` |
 | `REQ-LIGHT-004` | Vehicle state updates shall affect target output arbitration without bypassing scheduler. | `vehicle_state.c`, `scheduler.c` |
-| `REQ-LIGHT-005` | Status query shall expose current fault mode, lifecycle, recovery progress, vehicle state, target output, and fault counters. | `commandin.c`, `light_status_snapshot.c` |
+| `REQ-LIGHT-005` | Status query shall expose current fault mode, lifecycle, recovery progress, vehicle state, target output, readable last fault name, and fault counters. | `commandin.c`, `light_status_snapshot.c` |
 
 ## Fault and Safety Requirements
 
@@ -24,6 +24,7 @@ This document records the minimum engineering requirements for the current Light
 | `REQ-RECOVERY-001` | A clear request shall not immediately return a non-normal fault mode to `NORMAL`. | `light_fault_mode.c` |
 | `REQ-RECOVERY-002` | Recovery shall step down one fault mode level per satisfied observation window. | `light_fault_mode.c` |
 | `REQ-RECOVERY-003` | A new fault during recovery shall interrupt recovery and reset recovery progress. | `light_fault_mode.c` |
+| `REQ-FAULT-DIAG-001` | Fault management shall keep recent event diagnostics for fault events, clear events, and recovery ticks without dynamic memory. | `light_fault_mode.c`, `faultmg.c` |
 
 ## Engineering Requirements
 
@@ -35,6 +36,8 @@ This document records the minimum engineering requirements for the current Light
 | `REQ-ENG-004` | Architecture, safety, requirements, test plan, and demo flow shall be documented for engineering review. | `docs/` |
 | `REQ-ENG-005` | Shared-memory, transport, fault snapshot, and channel contracts shall be validated explicitly. | `light_contract.c`, `make test-contract` |
 | `REQ-ENG-006` | Runtime logs shall expose contract and snapshot evidence suitable for QEMU regression checks. | `SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, `FAULTMG_CONTRACT`, `STATUS_SNAPSHOT` |
+| `REQ-ENG-007` | Contract reject logs shall use a unified `*_CONTRACT_REJECT reason=...` format. | `commandin.c`, `scheduler.c`, `vehicle_state.c`, `faultmg.c`, `lightctl.c` |
+| `REQ-ENG-008` | Validation evidence shall be summarizable through a manifest under `test-results/<run-id>/`. | `Makefile`, `make evidence` |
 
 ## Out of Current Scope
 

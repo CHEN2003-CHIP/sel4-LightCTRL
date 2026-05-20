@@ -109,16 +109,21 @@ send_text "#"
 wait_for_log "CMD_MSG type=fault_inject code=0x04"
 send_text "#"
 wait_for_log "FAULTMG_MODE_TRANSITION prev=WARN next=SAFE_MODE changed=1"
+wait_for_log "FAULTMG_HISTORY"
+wait_for_log "code_name=HW_STATE_ERR mode=SAFE_MODE lifecycle=ACTIVE"
 safe_mode_line=$(last_line "FAULTMG_MODE_TRANSITION prev=WARN next=SAFE_MODE changed=1")
 wait_for_log_after "SCHED_TARGET mode=SAFE_MODE" "$safe_mode_line"
 
 send_text "?"
 wait_for_log "CMD_MSG type=query_status"
 wait_for_log "STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=ACTIVE"
+wait_for_log "last_fault_name=HW_STATE_ERR"
 
 send_text "C"
 wait_for_log "CMD_MSG type=fault_clear scope=1"
 wait_for_log "FAULTMG_CLEAR prev=SAFE_MODE next=SAFE_MODE changed=0 lifecycle_prev=ACTIVE lifecycle_next=RECOVERING lifecycle_changed=1"
+wait_for_log "FAULTMG_HISTORY"
+wait_for_log "event=CLEAR code=0x00 code_name=NONE mode=SAFE_MODE lifecycle=RECOVERING"
 clear_line=$(last_line "FAULTMG_CLEAR prev=SAFE_MODE next=SAFE_MODE changed=0 lifecycle_prev=ACTIVE lifecycle_next=RECOVERING lifecycle_changed=1")
 wait_for_log_after "SCHED_TARGET mode=SAFE_MODE" "$clear_line"
 
@@ -131,11 +136,13 @@ wait_for_log "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=SAFE_MODE changed=0 life
 
 send_text "C"
 wait_for_log "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=DEGRADED changed=1 lifecycle_prev=RECOVERING lifecycle_next=RECOVERING lifecycle_changed=0"
+wait_for_log "event=RECOVERY_TICK code=0x00 code_name=NONE mode=DEGRADED lifecycle=RECOVERING"
 degraded_line=$(last_line "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=DEGRADED changed=1 lifecycle_prev=RECOVERING lifecycle_next=RECOVERING lifecycle_changed=0")
 wait_for_log_after "SCHED_TARGET mode=DEGRADED" "$degraded_line"
 
 send_text "?"
 wait_for_log "STATUS_SNAPSHOT fault=DEGRADED lifecycle=RECOVERING recovery_ticks=0/2 active_faults=0x00"
+wait_for_log "last_fault_name=HW_STATE_ERR"
 
 trap - EXIT
 cleanup

@@ -84,6 +84,91 @@ static void test_fault_event_carries_current_owner_mode(void) {
                 "fault event should carry owner-selected mode");
 }
 
+static void test_fault_code_names_are_stable_evidence_tokens(void) {
+    expect_true(light_fault_code_name(0U) == light_fault_code_name(0U),
+                "fault code names should be stable string tokens");
+    expect_true(light_fault_code_name(LIGHT_ERR_MODE_CONFLICT)[0] == 'M',
+                "mode conflict should have a readable evidence token");
+    expect_true(light_fault_code_name(LIGHT_ERR_HW_STATE_ERR)[0] == 'H',
+                "hardware state error should have a readable evidence token");
+    expect_true(light_fault_code_name(0xeeU)[0] == 'U',
+                "unknown fault codes should be explicit");
+}
+
+static void test_fault_history_records_recent_events_with_wraparound(void) {
+    light_fault_state_t state = light_fault_state_init();
+    light_fault_history_t history;
+    light_fault_history_record_t record;
+    uint8_t i;
+
+    light_fault_history_reset(&history);
+    expect_true(!light_fault_history_latest(&history, &record),
+                "empty fault history should not return a latest record");
+
+    for (i = 0U; i < LIGHT_FAULT_HISTORY_CAPACITY + 1U; i++) {
+        (void)light_fault_mode_record_error(&state, LIGHT_ERR_MODE_CONFLICT);
+        light_fault_history_record(&history,
+                                   &record,
+                                   LIGHT_FAULT_HISTORY_EVENT_ERROR,
+                                   LIGHT_ERR_MODE_CONFLICT,
+                                   &state,
+                                   state.counters.total_errors);
+    }
+
+    expect_true(history.count == LIGHT_FAULT_HISTORY_CAPACITY,
+                "fault history should keep a fixed capacity");
+    expect_true(record.sequence == LIGHT_FAULT_HISTORY_CAPACITY + 1U,
+                "fault history should keep monotonic sequence numbers");
+    expect_true(light_fault_history_latest(&history, &record),
+                "fault history should expose the latest record");
+    expect_true(record.sequence == LIGHT_FAULT_HISTORY_CAPACITY + 1U,
+                "latest fault history record should survive wraparound");
+    expect_true(record.mode == LIGHT_FAULT_MODE_DEGRADED,
+                "history record should capture owner-selected fault mode");
+    expect_true(record.lifecycle == LIGHT_FAULT_LIFECYCLE_ACTIVE,
+                "history record should capture lifecycle");
+    expect_true(record.active_fault_mask != 0U,
+                "history record should capture active fault mask");
+}
+
+static void test_fault_history_records_clear_and_recovery_tick(void) {
+    light_fault_state_t state = light_fault_state_init();
+    light_fault_history_t history;
+    light_fault_history_record_t record;
+
+    light_fault_history_reset(&history);
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    (void)light_fault_mode_clear_active(&state);
+
+    light_fault_history_record(&history,
+                               &record,
+                               LIGHT_FAULT_HISTORY_EVENT_CLEAR,
+                               0U,
+                               &state,
+                               state.counters.total_errors);
+
+    expect_true(record.event_type == LIGHT_FAULT_HISTORY_EVENT_CLEAR,
+                "history should record clear events");
+    expect_true(record.lifecycle == LIGHT_FAULT_LIFECYCLE_RECOVERING,
+                "clear history should capture recovering lifecycle");
+    expect_true(record.active_fault_mask == 0U,
+                "clear history should capture cleared active mask");
+
+    (void)light_fault_mode_observe_recovery(&state);
+    light_fault_history_record(&history,
+                               &record,
+                               LIGHT_FAULT_HISTORY_EVENT_RECOVERY_TICK,
+                               0U,
+                               &state,
+                               state.counters.total_errors);
+
+    expect_true(record.event_type == LIGHT_FAULT_HISTORY_EVENT_RECOVERY_TICK,
+                "history should record recovery observation ticks");
+    expect_true(light_fault_history_event_type_name(record.event_type)[0] == 'R',
+                "recovery tick event type should have a readable token");
+}
+
 static void test_clear_enters_recovering_without_immediate_recovery(void) {
     light_fault_state_t state = light_fault_state_init();
     fault_decision_t decision;
@@ -343,6 +428,9 @@ int main(void) {
     test_repeated_hw_error_enters_safe_mode();
     test_non_conflict_error_resets_conflict_streak();
     test_fault_event_carries_current_owner_mode();
+    test_fault_code_names_are_stable_evidence_tokens();
+    test_fault_history_records_recent_events_with_wraparound();
+    test_fault_history_records_clear_and_recovery_tick();
     test_clear_enters_recovering_without_immediate_recovery();
     test_recovery_window_steps_down_one_level_at_a_time();
     test_fault_during_recovery_interrupts_step_down_progress();

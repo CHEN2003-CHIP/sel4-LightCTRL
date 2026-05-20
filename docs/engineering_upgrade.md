@@ -42,6 +42,10 @@ The contract layer in `light_contract.c` makes compatibility checks explicit:
 Runtime users log contract evidence with stable tags such as
 `SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, and `FAULTMG_CONTRACT`. This turns
 compatibility assumptions into inspectable QEMU log evidence.
+Contract rejects use the same shape across components:
+`CMD_CONTRACT_REJECT`, `SCHED_CONTRACT_REJECT`,
+`VEHICLE_STATE_CONTRACT_REJECT`, `FAULTMG_CONTRACT_REJECT`, and
+`LIGHTCTL_CONTRACT_REJECT`.
 
 ## Safety and Diagnostics
 
@@ -53,8 +57,10 @@ subsystem:
 - Recovery is observation-based and rate-limited by a recovery window.
 - New faults during recovery reset recovery progress, preventing fast clear and
   re-fault oscillation.
-- `STATUS_SNAPSHOT` now includes layout and contract status, so the serial
-  diagnostic line can be used as regression evidence.
+- `STATUS_SNAPSHOT` includes layout, contract status, and `last_fault_name`,
+  so the serial diagnostic line can be used as regression evidence.
+- `FAULTMG_HISTORY` records recent fault events, clear events, and recovery
+  ticks as stable QEMU log evidence.
 
 The important review point is not that this is production-certified automotive
 safety software. The point is that the safety argument is visible, bounded, and
@@ -79,7 +85,12 @@ stable run id before copying files back from the Ubuntu VM:
 ```bash
 make test TEST_RUN_ID=vm-20260520
 make qemu-test TEST_RUN_ID=vm-20260520
+make evidence TEST_RUN_ID=vm-20260520
 ```
+
+`make evidence` writes `manifest.txt` in the run directory. The manifest lists
+the run id, board, Microkit config, summary files, and expected evidence tokens
+for snapshot, fault-history, and contract-reject checks.
 
 Focused checks:
 
@@ -100,20 +111,25 @@ serial-observable behavior.
 
 ## Latest Evidence
 
-The latest preserved validation run is `test-results/report-v3/`.
+The latest preserved validation run is `test-results/report-v6/`.
 
 | Command group | Result |
 | --- | --- |
-| `make test TEST_RUN_ID=report-v3` | PASS |
+| `make test TEST_RUN_ID=report-v6` | PASS |
 | `make build` | PASS |
-| `make qemu-test TEST_RUN_ID=report-v3` | PASS |
+| `make qemu-test TEST_RUN_ID=report-v6` | PASS |
+| `make evidence TEST_RUN_ID=report-v6` | PASS |
 
 Important evidence:
 
 - `host-summary.txt` shows all host-side tests passed.
 - `qemu-summary.txt` shows `smoke`, `test-integration-fault`, and
   `test-serial-e2e` all passed.
-- `serial-e2e/qemu.log` contains `STATUS_SNAPSHOT ... layout=3 contract=OK`.
+- `serial-e2e/qemu.log` contains `STATUS_SNAPSHOT ... last_fault_name=HW_STATE_ERR ... layout=3 contract=OK`.
+- `serial-e2e/qemu.log` contains `FAULTMG_HISTORY ... lifecycle=ACTIVE` and
+  `FAULTMG_HISTORY ... lifecycle=RECOVERING`.
+
+The report-ready v2 evidence is now preserved in `report-v6`.
 
 See `docs/validation_report.md` for the review-ready validation record.
 

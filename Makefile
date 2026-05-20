@@ -104,7 +104,7 @@ CONFIG_STAMP := $(BUILD_DIR)/.microkit_config_$(MICROKIT_CONFIG)
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-.PHONY: all build run clean debug release smoke test qemu-test $(HOST_TEST_TARGETS) $(QEMU_TEST_TARGETS) help $(LEGACY_TARGETS) legacy
+.PHONY: all build run clean debug release smoke test qemu-test evidence $(HOST_TEST_TARGETS) $(QEMU_TEST_TARGETS) help $(LEGACY_TARGETS) legacy
 
 all: build
 
@@ -150,6 +150,27 @@ qemu-test:
 			fi; \
 		done; \
 		printf "\nQEMU test logs: %s\n" "$(TEST_RESULTS_RUN_DIR)"'
+
+evidence:
+	@mkdir -p "$(TEST_RESULTS_RUN_DIR)"
+	@bash -c 'set -euo pipefail; \
+		manifest="$(TEST_RESULTS_RUN_DIR)/manifest.txt"; \
+		{ \
+			printf "LightDemo validation evidence manifest\n"; \
+			printf "run_id=%s\n" "$(TEST_RUN_ID)"; \
+			printf "created_at=%s\n" "$$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"; \
+			printf "board=%s\n" "$(BOARD)"; \
+			printf "microkit_config=%s\n" "$(MICROKIT_CONFIG)"; \
+			printf "shared_layout=%s\n" "3"; \
+			printf "host_summary=%s\n" "$(TEST_RESULTS_RUN_DIR)/host-summary.txt"; \
+			printf "qemu_summary=%s\n" "$(TEST_RESULTS_RUN_DIR)/qemu-summary.txt"; \
+			printf "expected_status_snapshot=STATUS_SNAPSHOT ... layout=3 contract=OK\n"; \
+			printf "expected_fault_history=FAULTMG_HISTORY ... lifecycle=ACTIVE/RECOVERING\n"; \
+			printf "expected_contract_reject=*_CONTRACT_REJECT reason=...\n"; \
+		} > "$$manifest"; \
+		printf "Evidence manifest: %s\n" "$$manifest"; \
+		if [ -f "$(TEST_RESULTS_RUN_DIR)/host-summary.txt" ]; then cat "$(TEST_RESULTS_RUN_DIR)/host-summary.txt"; fi; \
+		if [ -f "$(TEST_RESULTS_RUN_DIR)/qemu-summary.txt" ]; then cat "$(TEST_RESULTS_RUN_DIR)/qemu-summary.txt"; fi'
 
 test-integration-fault:
 	$(MAKE) build BUILD_DIR=build-test-hooks TEST_HOOKS=1
@@ -246,6 +267,7 @@ help:
 	@echo "  smoke    Run the minimal automated smoke test"
 	@echo "  test     Run all host-side unit tests"
 	@echo "  qemu-test Run smoke, fault-injection, and serial E2E QEMU tests"
+	@echo "  evidence Generate a validation evidence manifest under test-results/<run-id>/"
 	@echo "  test-policy Run host-side policy unit tests"
 	@echo "  test-protocol Run shared-state compatibility tests"
 	@echo "  test-contract Run interface contract compatibility tests"

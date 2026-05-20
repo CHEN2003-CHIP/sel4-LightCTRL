@@ -4,9 +4,10 @@ LightDemo is a seL4 Microkit demo project for an automotive light-control pipeli
 
 The current baseline is intended to be reviewed as an engineering-grade
 embedded project, not only as a tutorial demo. See
-`docs/engineering_upgrade.md` for the contract model, validation flow, and
-presentation highlights. See `docs/validation_report.md` for the latest
-accepted validation evidence.
+`docs/release_baseline.md` for the frozen v1.0 release baseline,
+`docs/engineering_upgrade.md` for the contract model and presentation
+highlights, `docs/validation_report.md` for accepted validation evidence, and
+`docs/engineering_roadmap.md` for the v1.1 to v2.0 roadmap.
 
 ## Overview
 
@@ -63,6 +64,7 @@ Recommended targets:
 - `make smoke`
 - `make test`
 - `make test-contract`
+- `make evidence`
 - `make qemu-test`
 - `make test-transport`
 - `make test-snapshot`
@@ -79,9 +81,27 @@ Aggregate test logs are written to `test-results/<run-id>/`. For a report run,
 use a stable id before copying files back from the Ubuntu VM:
 
 ```bash
-make test TEST_RUN_ID=report-v1
-make qemu-test TEST_RUN_ID=report-v1
+make test TEST_RUN_ID=report-v6
+make build
+make qemu-test TEST_RUN_ID=report-v6
+make evidence TEST_RUN_ID=report-v6
 ```
+
+`make evidence` writes `test-results/<run-id>/manifest.txt`, which records the
+run id, target board, Microkit config, summary files, and expected evidence
+tokens such as `STATUS_SNAPSHOT ... layout=3 contract=OK` and
+`FAULTMG_HISTORY ... lifecycle=ACTIVE/RECOVERING`.
+
+The latest accepted baseline is **LightDemo Engineering Baseline v1.0** with
+run id `report-v6`:
+
+| Validation item | Result | Evidence |
+| --- | --- | --- |
+| Host-side tests | PASS | `test-results/report-v6/host-summary.txt` |
+| QEMU smoke | PASS | `test-results/report-v6/smoke.make.log` |
+| QEMU fault integration | PASS | `test-results/report-v6/test-integration-fault.make.log` |
+| QEMU serial E2E | PASS | `test-results/report-v6/test-serial-e2e.make.log` |
+| Evidence manifest | PASS | `test-results/report-v6/manifest.txt` |
 
 Or with an explicit SDK path:
 
@@ -200,10 +220,83 @@ Fault-management helpers:
 - `#`: inject `LIGHT_ERR_HW_STATE_ERR`
 - `C`: clear active faults and, while already recovering, advance one recovery observation tick
 - `?`: print a unified `STATUS_SNAPSHOT` including fault mode, lifecycle phase, recovery progress, and fault statistics
+- Current `STATUS_SNAPSHOT` lines also include `last_fault_name=...` for a readable fault-code token.
+
+## Fault Lifecycle
+
+The README lifecycle description is synchronized with the current
+implementation. `fault_mg` is the only owner of global fault mode and lifecycle.
+
+| Lifecycle | Meaning |
+| --- | --- |
+| `STABLE` | No active fault and no recovery in progress. |
+| `ACTIVE` | One or more active fault markers are present. |
+| `RECOVERING` | Active faults were cleared, but the system is still stepping down severity through observation ticks. |
+
+Current recovery behavior:
+
+1. A fault event enters `ACTIVE`.
+2. Clear removes active fault markers.
+3. Non-normal modes enter `RECOVERING`.
+4. Healthy observation ticks advance `recovery_ticks`.
+5. Each satisfied window steps down one fault mode level.
+6. A new fault during recovery interrupts recovery and returns to `ACTIVE`.
+7. Returning to `NORMAL` moves lifecycle back to `STABLE`.
+
+Current escalation behavior:
+
+| Condition | Result |
+| --- | --- |
+| No active fault | `NORMAL` |
+| Any recognized fault | `WARN` |
+| Three consecutive `LIGHT_ERR_MODE_CONFLICT` events | `DEGRADED` |
+| Two `LIGHT_ERR_HW_STATE_ERR` events | `SAFE_MODE` |
+
+Fault Lifecycle v2 diagnostics add stable evidence logs without changing the
+shared-memory layout. The current layout remains `layout=3`.
+
+```text
+FAULTMG_HISTORY seq=... event=ERROR code=0x04 code_name=HW_STATE_ERR mode=SAFE_MODE lifecycle=ACTIVE ...
+FAULTMG_HISTORY seq=... event=CLEAR code=0x00 code_name=NONE mode=SAFE_MODE lifecycle=RECOVERING ...
+FAULTMG_HISTORY seq=... event=RECOVERY_TICK code=0x00 code_name=NONE mode=DEGRADED lifecycle=RECOVERING ...
+```
+
+Contract rejects use a common runtime evidence shape:
+
+```text
+CMD_CONTRACT_REJECT reason=...
+SCHED_CONTRACT_REJECT reason=...
+VEHICLE_STATE_CONTRACT_REJECT reason=...
+FAULTMG_CONTRACT_REJECT reason=...
+LIGHTCTL_CONTRACT_REJECT reason=...
+```
 
 ## Notes
 
 - `build/` is a build-output directory, not source code.
 - `vmm/` exists in the repository, but it is not part of the default `part1` to `part5` build path.
-- The current lifecycle v1 is intentionally minimal: it supports clear, a recovery observation window, hysteresis, and one-step-at-a-time fallback, but not real time-based recovery or a full fault taxonomy.
+- The current lifecycle v2 keeps the same fault semantics and adds diagnostics: recent event history, readable fault names, and contract reject evidence. It still does not implement real time-based recovery or a full fault taxonomy.
 - Engineering review docs live under `docs/`: architecture, safety case, requirements, test plan, and demo script.
+
+## Current Boundary and Roadmap
+
+Current boundary:
+
+- Validation is accepted on Ubuntu 22.04 VM + QEMU, not on a real board.
+- GPIO behavior is observed through QEMU logs and simulated MMIO behavior.
+- Recovery uses observation ticks, not a real-time recovery window.
+- Fault taxonomy is project-scale and is not a full automotive fault catalog.
+- The project is an engineering-practice baseline, not a formal safety
+  certification artifact.
+- Shared memory remains `layout=3`.
+- `test-results/report-v6/` is release evidence; `build/` and
+  `build-test-hooks/` are generated or copied artifacts.
+
+Roadmap:
+
+| Version | Main line |
+| --- | --- |
+| `v1.1` | Replace observation ticks with a real-time recovery window. |
+| `v1.2` | Expand fault taxonomy with source, severity, recovery policy, and tests. |
+| `v1.3` | Archive manifests, summaries, QEMU logs, and failure hints in CI. |
+| `v2.0` | Validate real-board GPIO behavior or expand the vehicle-state model. |

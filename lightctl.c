@@ -236,7 +236,9 @@ void init(void) {
 
 void notified(microkit_channel ch) {
     if (ch != LIGHT_CH_LIGHTCTL_FROM_SCHEDULER) {
-        LOG_INFO("LightCtrl: Unknown channel, ignore\n");
+        LOG_INFO("LIGHTCTL_CONTRACT_REJECT reason=UNKNOWN_CHANNEL expected=%u actual=%u type=0 len=0 version=0",
+                 (unsigned int)LIGHT_CH_LIGHTCTL_FROM_SCHEDULER,
+                 (unsigned int)ch);
         microkit_mr_set(0, LIGHT_ERR_INVALID_CMD);
         microkit_notify(LIGHT_CH_LIGHTCTL_TO_FAULTMG);
         return;

@@ -216,7 +216,7 @@ static void dispatch_transport_message(light_transport_message_t message) {
         light_contract_check_transport_message(message, (light_transport_msg_type_t)message.type);
 
     if (contract.status != LIGHT_CONTRACT_OK) {
-        LOG_ERROR("CMD_MSG_REJECT contract=%s expected=%u actual=%u type=%u len=%u version=%u",
+        LOG_ERROR("CMD_CONTRACT_REJECT reason=%s expected=%u actual=%u type=%u len=%u version=%u",
                   light_contract_status_name(contract.status),
                   (unsigned int)contract.expected,
                   (unsigned int)contract.actual,
@@ -279,6 +279,8 @@ static void emit_status_snapshot(void) {
     uart_put_hex8((uint8_t)g_shmem->allow_flags);
     uart_put_str(" last_fault=");
     uart_put_hex8(g_shmem->last_fault_code);
+    uart_put_str(" last_fault_name=");
+    uart_put_str(light_fault_code_name(g_shmem->last_fault_code));
     uart_put_str(" total_faults=");
     uart_put_u32(g_shmem->total_fault_count);
     uart_put_str(" layout=");

@@ -91,10 +91,12 @@ This is the anti-flap behavior. It prevents a repeated clear/fault pattern from 
 
 The safety model is visible through:
 
-- `STATUS_SNAPSHOT` query output from `commandin`, including layout and contract status
+- `STATUS_SNAPSHOT` query output from `commandin`, including layout, contract status, and readable `last_fault_name`
 - `SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, and `FAULTMG_CONTRACT` compatibility logs
+- `*_CONTRACT_REJECT reason=...` logs for invalid transport or channel evidence
 - `FAULTMG_MODE_TRANSITION` logs
 - `FAULTMG_CLEAR` and `FAULTMG_RECOVERY_TICK` logs
+- `FAULTMG_HISTORY` logs for recent event, clear, and recovery-tick evidence
 - `LIGHTCTL_TARGET_SUMMARY` logs
 - host-side contract checks in `tests/test_light_contract.c`
 - host-side tests in `tests/test_light_fault_mode.c`
@@ -108,7 +110,7 @@ make test-contract
 make qemu-test
 ```
 
-Latest accepted evidence is preserved under `test-results/report-v3/`.
+Latest accepted evidence is preserved under `test-results/report-v6/`.
 The serial E2E log includes:
 
 ```text
@@ -119,6 +121,15 @@ STATUS_SNAPSHOT fault=DEGRADED lifecycle=RECOVERING ... layout=3 contract=OK
 
 This confirms that fault escalation, clear-to-recovery, recovery step-down, and
 runtime contract visibility are all covered by QEMU evidence.
+
+Fault Lifecycle v2 adds a recent-history diagnostic line without changing the
+shared-memory layout:
+
+```text
+FAULTMG_HISTORY seq=... event=ERROR code_name=HW_STATE_ERR mode=SAFE_MODE lifecycle=ACTIVE ...
+FAULTMG_HISTORY seq=... event=CLEAR code_name=NONE mode=SAFE_MODE lifecycle=RECOVERING ...
+FAULTMG_HISTORY seq=... event=RECOVERY_TICK code_name=NONE mode=DEGRADED lifecycle=RECOVERING ...
+```
 
 Useful focused checks:
 

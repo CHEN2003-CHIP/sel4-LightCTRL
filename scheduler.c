@@ -101,7 +101,7 @@ void notified(microkit_channel ch) {
             light_contract_check_transport_message(message, LIGHT_TRANSPORT_MSG_LIGHT_CMD);
 
         if (contract.status != LIGHT_CONTRACT_OK) {
-            LOG_INFO("SCHED_MSG_REJECT contract=%s expected=%u actual=%u type=%u len=%u version=%u",
+            LOG_INFO("SCHED_CONTRACT_REJECT reason=%s expected=%u actual=%u type=%u len=%u version=%u",
                      light_contract_status_name(contract.status),
                      (unsigned int)contract.expected,
                      (unsigned int)contract.actual,

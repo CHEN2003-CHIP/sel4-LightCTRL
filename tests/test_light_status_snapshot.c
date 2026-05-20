@@ -51,7 +51,7 @@ static void test_snapshot_capture_reads_shared_state_consistently(void) {
 
 static void test_snapshot_format_emits_unified_status_line(void) {
     light_status_snapshot_t snapshot;
-    char buf[256];
+    char buf[384];
     int len;
 
     memset(&snapshot, 0, sizeof(snapshot));
@@ -83,6 +83,8 @@ static void test_snapshot_format_emits_unified_status_line(void) {
                 "snapshot formatter should include target output");
     expect_true(strstr(buf, "contract=OK") != NULL,
                 "snapshot formatter should include contract status");
+    expect_true(strstr(buf, "last_fault_name=HW_STATE_ERR") != NULL,
+                "snapshot formatter should include readable fault code name");
 }
 
 int main(void) {

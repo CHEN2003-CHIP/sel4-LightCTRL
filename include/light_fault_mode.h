@@ -17,6 +17,14 @@ typedef enum {
     LIGHT_FAULT_LIFECYCLE_RECOVERING = 2,
 } light_fault_lifecycle_t;
 
+#define LIGHT_FAULT_HISTORY_CAPACITY 4U
+
+typedef enum {
+    LIGHT_FAULT_HISTORY_EVENT_ERROR = 1,
+    LIGHT_FAULT_HISTORY_EVENT_CLEAR = 2,
+    LIGHT_FAULT_HISTORY_EVENT_RECOVERY_TICK = 3,
+} light_fault_history_event_type_t;
+
 typedef struct {
     uint32_t total_errors;
     uint32_t speed_limit_errors;
@@ -50,18 +58,46 @@ typedef struct {
     fault_mode_t current_mode;
 } light_fault_event_t;
 
+typedef struct {
+    uint32_t sequence;
+    light_fault_history_event_type_t event_type;
+    uint8_t error_code;
+    fault_mode_t mode;
+    light_fault_lifecycle_t lifecycle;
+    uint8_t active_fault_mask;
+    uint32_t total_errors;
+} light_fault_history_record_t;
+
+typedef struct {
+    light_fault_history_record_t records[LIGHT_FAULT_HISTORY_CAPACITY];
+    uint8_t next_index;
+    uint8_t count;
+    uint32_t next_sequence;
+} light_fault_history_t;
+
 light_fault_state_t light_fault_state_init(void);
 void light_fault_state_reset(light_fault_state_t *state);
 fault_decision_t light_fault_mode_record_error(light_fault_state_t *state, uint8_t error_code);
 fault_decision_t light_fault_mode_clear_active(light_fault_state_t *state);
 fault_decision_t light_fault_mode_observe_recovery(light_fault_state_t *state);
 light_fault_event_t light_fault_event_create(uint8_t error_code, fault_mode_t current_mode);
+void light_fault_history_reset(light_fault_history_t *history);
+void light_fault_history_record(light_fault_history_t *history,
+                                light_fault_history_record_t *record,
+                                light_fault_history_event_type_t event_type,
+                                uint8_t error_code,
+                                const light_fault_state_t *state,
+                                uint32_t total_errors);
+bool light_fault_history_latest(const light_fault_history_t *history,
+                                light_fault_history_record_t *record);
 uint8_t light_fault_mode_transport_encode(fault_mode_t mode);
 fault_mode_t light_fault_mode_transport_decode(uint8_t raw_mode);
 void light_fault_mode_transport_store(volatile uint8_t *slot, fault_mode_t mode);
 fault_mode_t light_fault_mode_transport_load(volatile const uint8_t *slot);
 const char *light_fault_mode_name(fault_mode_t mode);
 const char *light_fault_lifecycle_name(light_fault_lifecycle_t lifecycle);
+const char *light_fault_history_event_type_name(light_fault_history_event_type_t event_type);
+const char *light_fault_code_name(uint8_t error_code);
 uint8_t light_fault_recovery_window_ticks(void);
 
 #endif
