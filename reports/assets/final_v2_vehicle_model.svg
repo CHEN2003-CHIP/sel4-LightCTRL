@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420" role="img" aria-labelledby="title desc">
+  <title id="title">Figure 4. Vehicle model size</title>
+  <desc id="desc">A grayscale bar chart comparing 3 vehicle state fields in v1.0 and 7 fields in v2.0.</desc>
+  <rect width="900" height="420" fill="#ffffff"/>
+  <text x="450" y="34" text-anchor="middle" font-family="Times New Roman, serif" font-size="20" font-weight="700" fill="#111111">Figure 4. Vehicle-State Model Size</text>
+  <text x="450" y="58" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">Comparison between the initial model and the final v2.0 model</text>
+
+  <line x1="150" y1="330" x2="760" y2="330" stroke="#111111" stroke-width="1.5"/>
+  <line x1="150" y1="95" x2="150" y2="330" stroke="#111111" stroke-width="1.5"/>
+  <g stroke="#d0d0d0" stroke-width="1">
+    <line x1="150" y1="263" x2="760" y2="263"/>
+    <line x1="150" y1="196" x2="760" y2="196"/>
+    <line x1="150" y1="129" x2="760" y2="129"/>
+  </g>
+  <g font-family="Times New Roman, serif" font-size="13" fill="#111111">
+    <text x="126" y="334">0</text><text x="126" y="267">2</text><text x="126" y="200">4</text><text x="126" y="133">6</text>
+    <text x="52" y="222" transform="rotate(-90 52 222)">Number of state fields</text>
+  </g>
+
+  <g fill="#e6e6e6" stroke="#111111" stroke-width="1.2">
+    <rect x="280" y="229" width="110" height="101"/>
+    <rect x="510" y="95" width="110" height="235"/>
+  </g>
+  <g font-family="Times New Roman, serif" font-size="14" fill="#111111">
+    <text x="335" y="220" text-anchor="middle">3</text>
+    <text x="565" y="86" text-anchor="middle">7</text>
+    <text x="335" y="356" text-anchor="middle">v1.0</text>
+    <text x="565" y="356" text-anchor="middle">v2.0</text>
+  </g>
+  <text x="450" y="390" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">v2.0 adds gear, ambient light, hazard, and drive mode to the original speed/ignition/brake model.</text>
+</svg>

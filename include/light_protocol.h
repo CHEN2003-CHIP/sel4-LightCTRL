@@ -6,6 +6,8 @@
 #include "light_channels.h"
 
 #define LIGHT_SHARED_STATE_LAYOUT_V3  3U
+#define LIGHT_SHARED_STATE_LAYOUT_V4  4U
+#define LIGHT_SHARED_STATE_LAYOUT_CURRENT LIGHT_SHARED_STATE_LAYOUT_V4
 
 #define LIGHT_CMD_LOW_BEAM_OFF    0x00
 #define LIGHT_CMD_LOW_BEAM_ON     0x01
@@ -40,7 +42,31 @@ typedef enum {
     LIGHT_VEHICLE_FIELD_SPEED_KPH = 1,
     LIGHT_VEHICLE_FIELD_IGNITION_ON = 2,
     LIGHT_VEHICLE_FIELD_BRAKE_PEDAL = 3,
+    LIGHT_VEHICLE_FIELD_GEAR = 4,
+    LIGHT_VEHICLE_FIELD_AMBIENT_LIGHT = 5,
+    LIGHT_VEHICLE_FIELD_HAZARD = 6,
+    LIGHT_VEHICLE_FIELD_DRIVE_MODE = 7,
 } light_vehicle_field_t;
+
+typedef enum {
+    LIGHT_VEHICLE_GEAR_PARK = 0,
+    LIGHT_VEHICLE_GEAR_REVERSE = 1,
+    LIGHT_VEHICLE_GEAR_NEUTRAL = 2,
+    LIGHT_VEHICLE_GEAR_DRIVE = 3,
+} light_vehicle_gear_t;
+
+typedef enum {
+    LIGHT_VEHICLE_AMBIENT_DAY = 0,
+    LIGHT_VEHICLE_AMBIENT_DUSK = 1,
+    LIGHT_VEHICLE_AMBIENT_NIGHT = 2,
+} light_vehicle_ambient_light_t;
+
+typedef enum {
+    LIGHT_VEHICLE_DRIVE_MODE_CITY = 0,
+    LIGHT_VEHICLE_DRIVE_MODE_HIGHWAY = 1,
+    LIGHT_VEHICLE_DRIVE_MODE_PARKING = 2,
+    LIGHT_VEHICLE_DRIVE_MODE_EMERGENCY = 3,
+} light_vehicle_drive_mode_t;
 
 typedef struct {
     uint8_t low_beam_req;
@@ -55,6 +81,10 @@ typedef struct {
     uint16_t speed_kph;
     uint8_t brake_pedal;
     uint8_t ignition_on;
+    uint8_t gear;
+    uint8_t ambient_light;
+    uint8_t hazard;
+    uint8_t drive_mode;
 } light_vehicle_state_t;
 
 typedef struct {
@@ -81,6 +111,8 @@ typedef struct {
     volatile uint8_t fault_mode;
     volatile uint8_t fault_lifecycle;
     volatile uint8_t fault_recovery_ticks;
+    volatile uint32_t fault_recovery_elapsed_ms;
+    volatile uint32_t fault_recovery_window_ms;
     volatile uint8_t active_fault_mask;
     volatile uint8_t last_fault_code;
     volatile uint32_t total_fault_count;

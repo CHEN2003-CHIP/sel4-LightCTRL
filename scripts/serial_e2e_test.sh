@@ -129,7 +129,8 @@ wait_for_log_after "SCHED_TARGET mode=SAFE_MODE" "$clear_line"
 
 send_text "?"
 wait_for_log "CMD_MSG type=query_status"
-wait_for_log "STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=RECOVERING recovery_ticks=0/2 active_faults=0x00"
+wait_for_log "STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=RECOVERING recovery_ticks=0/2"
+wait_for_log "recovery_elapsed_ms=0/2000 active_faults=0x00"
 
 send_text "C"
 wait_for_log "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=SAFE_MODE changed=0 lifecycle_prev=RECOVERING lifecycle_next=RECOVERING lifecycle_changed=0"
@@ -141,7 +142,8 @@ degraded_line=$(last_line "FAULTMG_RECOVERY_TICK prev=SAFE_MODE next=DEGRADED ch
 wait_for_log_after "SCHED_TARGET mode=DEGRADED" "$degraded_line"
 
 send_text "?"
-wait_for_log "STATUS_SNAPSHOT fault=DEGRADED lifecycle=RECOVERING recovery_ticks=0/2 active_faults=0x00"
+wait_for_log "STATUS_SNAPSHOT fault=DEGRADED lifecycle=RECOVERING recovery_ticks=0/2"
+wait_for_log "recovery_elapsed_ms=0/2000 active_faults=0x00"
 wait_for_log "last_fault_name=HW_STATE_ERR"
 
 trap - EXIT

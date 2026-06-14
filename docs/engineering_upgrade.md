@@ -1,149 +1,101 @@
-# Engineering Upgrade Baseline
+# Engineering Upgrade Summary
 
-This note describes the next LightDemo baseline as an engineering-grade
-embedded project rather than a tutorial demo. The scope is intentionally
-conservative: no new lighting feature is added. The value is in explicit
-contracts, repeatable validation, and safety-oriented fault ownership.
+This document summarizes the final engineering upgrade delivered in **LightDemo Engineering Final v2.0**.
 
 ## Engineering Positioning
 
-LightDemo is treated as a small seL4/Microkit automotive lighting controller:
+LightDemo is now presented as a small seL4/Microkit automotive lighting controller with:
 
-```text
-UART input -> policy arbitration -> execution coordination -> GPIO output
-                         |
-                         v
-              centralized fault management
-```
+- separated source layout
+- explicit runtime contracts
+- centralized fault lifecycle ownership
+- elapsed-time recovery evidence
+- fault taxonomy metadata
+- v2.0 vehicle-state model
+- archived validation and defense reports
 
-The system is reviewable because each protection domain has one primary
-responsibility:
+## Final Source Structure
 
-| Layer | Domains | Engineering responsibility |
+| Area | Path | Purpose |
 | --- | --- | --- |
-| Input access | `commandin`, `vehicle_state` | Parse external input and normalize it into transport messages or vehicle-state updates. |
-| Policy decision | `scheduler`, `fault_mg` | Own target-output arbitration and global fault lifecycle. |
-| Execution and hardware | `lightctl`, `gpio` | Convert target output into checked GPIO actions and hardware-facing state. |
-
-This split preserves the existing Microkit communication behavior while making
-the control chain easier to defend in an engineering review.
+| Microkit domains | `src/domains/` | Protection-domain entrypoints |
+| Core logic | `src/core/` | Host-testable protocol, policy, contract, fault, vehicle logic |
+| Support code | `src/support/` | Shared support implementation |
+| Interfaces | `include/` | Public headers |
+| System description | `systems/light.system` | Microkit configuration |
+| Tests | `tests/` | Host-side unit and scenario tests |
+| Evidence scripts | `scripts/` | QEMU tests and evidence generation |
+| Reports | `reports/` | Defense-facing summaries |
 
 ## Interface Contracts
 
-The contract layer in `light_contract.c` makes compatibility checks explicit:
+The contract layer validates:
 
-| Contract | Guarded item | Evidence |
-| --- | --- | --- |
-| Shared-state layout | `LIGHT_SHARED_STATE_LAYOUT_V3` in `light_shmem_t` | `light_contract_check_shared_state`, `make test-contract` |
-| Transport wire shape | version, type, payload length | `light_contract_check_transport_message`, `make test-contract` |
-| Fault snapshot bounds | fault mode, lifecycle, recovery window, active mask | `light_contract_check_fault_snapshot`, `make test-contract` |
-| Channel table | known Microkit endpoint IDs | `light_contract_channel_is_known`, `make test-contract` |
+| Contract | Evidence |
+| --- | --- |
+| Shared layout V4 | `LIGHT_SHARED_STATE_LAYOUT_V4`, `STATUS_SNAPSHOT ... layout=4 contract=OK` |
+| Transport message shape | `make test-contract` |
+| Fault snapshot bounds | `make test-contract` |
+| Channel ID table | `make test-contract` |
 
-Runtime users log contract evidence with stable tags such as
-`SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, and `FAULTMG_CONTRACT`. This turns
-compatibility assumptions into inspectable QEMU log evidence.
-Contract rejects use the same shape across components:
-`CMD_CONTRACT_REJECT`, `SCHED_CONTRACT_REJECT`,
-`VEHICLE_STATE_CONTRACT_REJECT`, `FAULTMG_CONTRACT_REJECT`, and
-`LIGHTCTL_CONTRACT_REJECT`.
+## Fault Management Upgrade
 
-## Safety and Diagnostics
+Fault handling is centralized in `faultmg`. v2.0 adds:
 
-The fault-management design is promoted from demo behavior to a small safety
-subsystem:
+- elapsed-time recovery window evidence
+- fault taxonomy fields
+- structured `FAULTMG_EVENT`
+- preserved `FAULTMG_HISTORY`
 
-- `fault_mg` is the only owner of global fault mode and lifecycle transitions.
-- Fault modes are explicit: `NORMAL`, `WARN`, `DEGRADED`, `SAFE_MODE`.
-- Recovery is observation-based and rate-limited by a recovery window.
-- New faults during recovery reset recovery progress, preventing fast clear and
-  re-fault oscillation.
-- `STATUS_SNAPSHOT` includes layout, contract status, and `last_fault_name`,
-  so the serial diagnostic line can be used as regression evidence.
-- `FAULTMG_HISTORY` records recent fault events, clear events, and recovery
-  ticks as stable QEMU log evidence.
+Accepted evidence:
 
-The important review point is not that this is production-certified automotive
-safety software. The point is that the safety argument is visible, bounded, and
-testable.
+```text
+FAULTMG_EVENT ... severity=SAFE_MODE_AFTER_2 recovery_policy=clear_then_elapsed_window
+FAULTMG_RECOVERY_TICK ... recovery_elapsed_ms=1000 recovery_window_ms=2000
+STATUS_SNAPSHOT ... layout=4 contract=OK
+```
+
+## Vehicle-State Model Upgrade
+
+v2.0 expands vehicle state from basic speed/ignition/brake into:
+
+```text
+speed, ignition, brake_pedal, gear, ambient_light, hazard, drive_mode
+```
+
+This allows reviewable scenarios such as night driving, emergency hazard behavior, parking behavior, reverse high-beam blocking, and fault overlay in safe mode.
 
 ## Validation Model
 
-The standard validation environment is Ubuntu 22.04 with the Microkit SDK,
-QEMU, and an AArch64 cross compiler installed.
-
-Recommended sequence:
+Final accepted commands:
 
 ```bash
-make test
-make build
-make qemu-test
+make test TEST_RUN_ID=final-v2.0
+make build MICROKIT_SDK=../microkit-sdk-2.0.1
+make qemu-test TEST_RUN_ID=final-v2.0 MICROKIT_SDK=../microkit-sdk-2.0.1
+make evidence TEST_RUN_ID=final-v2.0
+make defense-report TEST_RUN_ID=final-v2.0
 ```
 
-Aggregate runs store review evidence under `test-results/<run-id>/`. Use a
-stable run id before copying files back from the Ubuntu VM:
+Final accepted results:
 
-```bash
-make test TEST_RUN_ID=vm-20260520
-make qemu-test TEST_RUN_ID=vm-20260520
-make evidence TEST_RUN_ID=vm-20260520
-```
-
-`make evidence` writes `manifest.txt` in the run directory. The manifest lists
-the run id, board, Microkit config, summary files, and expected evidence tokens
-for snapshot, fault-history, and contract-reject checks.
-
-Focused checks:
-
-```bash
-make test-contract
-make test-fault
-make test-runtime
-make test-transport
-make test-snapshot
-make smoke
-make test-integration-fault
-make test-serial-e2e
-```
-
-Host-side tests validate pure policy, protocol, contract, and fault logic
-quickly. QEMU tests validate protection-domain wiring, notifications, and
-serial-observable behavior.
-
-## Latest Evidence
-
-The latest preserved validation run is `test-results/report-v6/`.
-
-| Command group | Result |
+| Group | Result |
 | --- | --- |
-| `make test TEST_RUN_ID=report-v6` | PASS |
-| `make build` | PASS |
-| `make qemu-test TEST_RUN_ID=report-v6` | PASS |
-| `make evidence TEST_RUN_ID=report-v6` | PASS |
-
-Important evidence:
-
-- `host-summary.txt` shows all host-side tests passed.
-- `qemu-summary.txt` shows `smoke`, `test-integration-fault`, and
-  `test-serial-e2e` all passed.
-- `serial-e2e/qemu.log` contains `STATUS_SNAPSHOT ... last_fault_name=HW_STATE_ERR ... layout=3 contract=OK`.
-- `serial-e2e/qemu.log` contains `FAULTMG_HISTORY ... lifecycle=ACTIVE` and
-  `FAULTMG_HISTORY ... lifecycle=RECOVERING`.
-
-The report-ready v2 evidence is now preserved in `report-v6`.
-
-See `docs/validation_report.md` for the review-ready validation record.
+| Host tests | PASS |
+| QEMU smoke | PASS |
+| QEMU fault integration | PASS |
+| QEMU serial E2E | PASS |
+| Evidence manifest | PASS |
 
 ## Presentation Highlights
 
-Use these points for the project report:
+Use `reports/final_v2_showcase.md` as the first visual entry. Then show:
 
-- The project moved from staged tutorial targets to one engineering baseline:
-  `make build`, `make test`, and `make qemu-test`.
-- Microkit communication contracts are centralized and tested rather than
-  duplicated across components.
-- Fault handling has a single owner, explicit severity levels, conservative
-  output policy, and anti-flap recovery.
-- Serial and QEMU logs are structured enough to serve as repeatable regression
-  evidence.
-- The requirements, architecture, safety case, and test plan now form a
-  traceable chain from design intent to validation command.
+- `test-results/final-v2.0/manifest.txt`
+- `test-results/final-v2.0/qemu-summary.txt`
+- `test-results/final-v2.0/serial-e2e/qemu.log`
+- `reports/defense_report_final-v2.0.md`
+
+## Boundary
+
+Real-board GPIO electrical validation remains future work. The project includes `docs/real_board_validation_template.md` to make that boundary and next step explicit.

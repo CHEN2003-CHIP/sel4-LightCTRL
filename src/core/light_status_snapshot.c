@@ -1,0 +1,71 @@
+#include "light_status_snapshot.h"
+
+#include <stdio.h>
+
+#include "light_contract.h"
+#include "light_fault_mode.h"
+
+light_status_snapshot_t light_status_snapshot_capture(const volatile light_shmem_t *shmem) {
+    light_status_snapshot_t snapshot;
+    light_contract_check_t contract;
+
+    snapshot.layout_version = shmem->layout_version;
+    contract = light_contract_check_shared_state(shmem);
+    snapshot.contract_status = (uint8_t)contract.status;
+    snapshot.fault_mode = shmem->fault_mode;
+    snapshot.lifecycle = shmem->fault_lifecycle;
+    snapshot.recovery_ticks = shmem->fault_recovery_ticks;
+    snapshot.recovery_elapsed_ms = shmem->fault_recovery_elapsed_ms;
+    snapshot.recovery_window_ms = shmem->fault_recovery_window_ms;
+    snapshot.active_fault_mask = shmem->active_fault_mask;
+    snapshot.vehicle_state.speed_kph = shmem->vehicle_state.speed_kph;
+    snapshot.vehicle_state.ignition_on = shmem->vehicle_state.ignition_on;
+    snapshot.vehicle_state.brake_pedal = shmem->vehicle_state.brake_pedal;
+    snapshot.vehicle_state.gear = shmem->vehicle_state.gear;
+    snapshot.vehicle_state.ambient_light = shmem->vehicle_state.ambient_light;
+    snapshot.vehicle_state.hazard = shmem->vehicle_state.hazard;
+    snapshot.vehicle_state.drive_mode = shmem->vehicle_state.drive_mode;
+    snapshot.target_output.low_beam_on = shmem->target_output.low_beam_on;
+    snapshot.target_output.high_beam_on = shmem->target_output.high_beam_on;
+    snapshot.target_output.left_turn_on = shmem->target_output.left_turn_on;
+    snapshot.target_output.right_turn_on = shmem->target_output.right_turn_on;
+    snapshot.target_output.marker_on = shmem->target_output.marker_on;
+    snapshot.target_output.brake_on = shmem->target_output.brake_on;
+    snapshot.allow_flags = shmem->allow_flags;
+    snapshot.last_fault_code = shmem->last_fault_code;
+    snapshot.total_fault_count = shmem->total_fault_count;
+
+    return snapshot;
+}
+
+int light_status_snapshot_format(char *buf, size_t buf_size, light_status_snapshot_t snapshot) {
+    return snprintf(buf,
+                    buf_size,
+                    "STATUS_SNAPSHOT fault=%s lifecycle=%s recovery_ticks=%u/%u recovery_elapsed_ms=%u/%u active_faults=0x%02x speed=%u ignition=%u brake_pedal=%u gear=%u ambient=%u hazard=%u drive_mode=%u target[low=%u high=%u left=%u right=%u marker=%u brake=%u] allow=0x%02x last_fault=0x%02x last_fault_name=%s total_faults=%u layout=%u contract=%s",
+                    light_fault_mode_name((fault_mode_t)snapshot.fault_mode),
+                    light_fault_lifecycle_name((light_fault_lifecycle_t)snapshot.lifecycle),
+                    (unsigned int)snapshot.recovery_ticks,
+                    (unsigned int)light_fault_recovery_window_ticks(),
+                    (unsigned int)snapshot.recovery_elapsed_ms,
+                    (unsigned int)snapshot.recovery_window_ms,
+                    (unsigned int)snapshot.active_fault_mask,
+                    (unsigned int)snapshot.vehicle_state.speed_kph,
+                    (unsigned int)snapshot.vehicle_state.ignition_on,
+                    (unsigned int)snapshot.vehicle_state.brake_pedal,
+                    (unsigned int)snapshot.vehicle_state.gear,
+                    (unsigned int)snapshot.vehicle_state.ambient_light,
+                    (unsigned int)snapshot.vehicle_state.hazard,
+                    (unsigned int)snapshot.vehicle_state.drive_mode,
+                    (unsigned int)snapshot.target_output.low_beam_on,
+                    (unsigned int)snapshot.target_output.high_beam_on,
+                    (unsigned int)snapshot.target_output.left_turn_on,
+                    (unsigned int)snapshot.target_output.right_turn_on,
+                    (unsigned int)snapshot.target_output.marker_on,
+                    (unsigned int)snapshot.target_output.brake_on,
+                    (unsigned int)snapshot.allow_flags,
+                    (unsigned int)snapshot.last_fault_code,
+                    light_fault_code_name(snapshot.last_fault_code),
+                    (unsigned int)snapshot.total_fault_count,
+                    (unsigned int)snapshot.layout_version,
+                    light_contract_status_name((light_contract_status_t)snapshot.contract_status));
+}

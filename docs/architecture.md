@@ -1,151 +1,91 @@
 # LightDemo Architecture
 
-This document describes the current seL4/Microkit architecture for the automotive lighting control demo. It is intended to support engineering review: component boundaries, channel contracts, shared memory ownership, and behavior that must remain unchanged during cleanup.
+This document describes the final v2.0 seL4/Microkit architecture.
 
-## System Shape
+## Protection Domains
 
-The system is split into small Microkit protection domains:
+| Domain | Source | Responsibility |
+| --- | --- | --- |
+| `commandin` | `src/domains/commandin.c` | UART input gateway, transport dispatch, local status query |
+| `scheduler` | `src/domains/scheduler.c` | Rule arbitration and target output computation |
+| `lightctl` | `src/domains/lightctl.c` | Execution coordination and runtime guard integration |
+| `gpio` | `src/domains/gpio.c` | Hardware-facing output behavior under QEMU |
+| `fault_mg` | `src/domains/faultmg.c` | Fault lifecycle owner and fault mode publisher |
+| `vehicle_state` | `src/domains/vehicle_state.c` | Vehicle-state update consumer |
 
-| Protection domain | Responsibility |
-| --- | --- |
-| `commandin` | UART input gateway. It parses serial input into `light_transport_message_t`, dispatches light commands, vehicle state updates, fault injection/clear requests, and local status queries. |
-| `scheduler` | Rule and policy arbitration. It consumes operator requests, vehicle state, and current fault mode, then computes `target_output` and `allow_flags`. |
-| `lightctl` | Execution coordination. It diffs current execution state against `target_output`, runs runtime guard checks, notifies GPIO channels, and reports rejected high-risk actions to `faultmg`. |
-| `gpio` | Pin-level output and timer/MMIO interaction. It observes the current fault mode and performs final hardware-facing light output actions. |
-| `fault_mg` | Fault lifecycle owner. It records fault events, owns fault mode transitions, publishes lifecycle state, and notifies GPIO and scheduler about fault mode updates. |
-| `vehicle_state` | Vehicle state update consumer. It writes speed, ignition, and brake pedal state into the shared state used by scheduler. |
+Microkit system description: `systems/light.system`.
 
-## Engineering Layering
-
-The protection domains are grouped into three engineering layers:
+## Engineering Layers
 
 | Layer | Domains | Boundary rule |
 | --- | --- | --- |
-| Input access | `commandin`, `vehicle_state` | Accept external input and normalize it; do not own final lighting policy or global fault mode. |
-| Policy decision | `scheduler`, `fault_mg` | Compute target output and own fault lifecycle; do not directly drive GPIO pins. |
-| Execution and hardware | `lightctl`, `gpio` | Convert target output into guarded GPIO actions and hardware-visible state. |
-
-This layering keeps the demo communication behavior unchanged while making the
-system easier to review as an embedded control project.
+| Input access | `commandin`, `vehicle_state` | Normalize external input; do not own final light policy or global fault state |
+| Policy decision | `scheduler`, `fault_mg` | Own target-output arbitration and fault lifecycle |
+| Execution/hardware | `lightctl`, `gpio` | Convert target output into guarded GPIO actions |
 
 ## Message Flow
 
-Normal lighting command path:
-
 ```text
 UART -> commandin -> scheduler -> lightctl -> gpio
-```
-
-Vehicle state update path:
-
-```text
 UART -> commandin -> vehicle_state -> scheduler -> lightctl -> gpio
+fault reports/test injection -> faultmg -> scheduler -> lightctl
+faultmg -> gpio
+status query -> commandin -> shared memory snapshot -> UART
 ```
-
-Fault path:
-
-```text
-lightctl -> fault_mg -> scheduler -> lightctl
-lightctl -> fault_mg -> gpio
-commandin -> fault_mg -> scheduler -> lightctl
-commandin -> fault_mg -> gpio
-```
-
-`fault_mg` does not directly notify `lightctl` during normal mode publication. It notifies `scheduler` and `gpio`; `scheduler` recomputes `target_output` and then synchronizes `lightctl`.
-
-Status query path:
-
-```text
-UART -> commandin -> shared memory snapshot -> UART
-```
-
-## Channel Map
-
-The channel IDs are declared in `light.system` and centralized for C code in `include/light_channels.h`.
-
-| Channel end A | ID | Channel end B | ID | Purpose |
-| --- | ---: | --- | ---: | --- |
-| `gpio` | 1 | `lightctl` | 2 | Reserved legacy GPIO/lightctl link. |
-| `commandin` | 3 | `scheduler` | 4 | Light command notification. |
-| `fault_mg` | 5 | `lightctl` | 6 | Fault report path from lightctl to faultmg. |
-| `fault_mg` | 7 | `gpio` | 8 | Fault mode update notification to GPIO. |
-| `scheduler` | 9 | `lightctl` | 10 | Scheduler target-output synchronization. |
-| `commandin` | 11 | `fault_mg` | 12 | Fault injection and fault clear transport path. |
-| `scheduler` | 13 | `fault_mg` | 14 | Fault mode update notification to scheduler. |
-| `scheduler` | 15 | `vehicle_state` | 16 | Vehicle state update notification to scheduler. |
-| `commandin` | 17 | `vehicle_state` | 18 | Vehicle state transport path. |
-| `lightctl` | 20-31 | `gpio` | 20-31 | Concrete GPIO actions such as low beam on/off, turn signals, brake, high beam, and position light. |
-
-GPIO action IDs:
-
-| ID | Action |
-| ---: | --- |
-| 20 | Turn left on |
-| 21 | Turn left off |
-| 22 | Turn right on |
-| 23 | Turn right off |
-| 24 | Brake on |
-| 25 | Brake off |
-| 26 | Low beam on |
-| 27 | Low beam off |
-| 28 | High beam on |
-| 29 | High beam off |
-| 30 | Position light on |
-| 31 | Position light off |
 
 ## Shared Memory Layout
 
-The primary shared state is `light_shmem_t` in `include/light_protocol.h`. Its layout is versioned by `LIGHT_SHARED_STATE_LAYOUT_V3` so that future changes can be detected explicitly.
+The final shared state uses `LIGHT_SHARED_STATE_LAYOUT_V4`.
 
-Current shared fields include:
+V4 adds:
 
-| Field group | Producer | Consumers | Purpose |
-| --- | --- | --- | --- |
-| `layout_version` | `scheduler` | all readers | Shared memory compatibility guard. |
-| `uart_cmd` | `scheduler` | diagnostics | Last accepted light command. |
-| `operator_request` | `scheduler` | `scheduler`, snapshot | Latched operator lighting request. |
-| `vehicle_state` | `vehicle_state` | `scheduler`, snapshot | Speed, ignition, brake pedal. |
-| `fault_mode`, lifecycle fields | `fault_mg` | `scheduler`, `lightctl`, `commandin`, diagnostics | Current fault state and recovery progress. |
-| `target_output` | `scheduler` | `lightctl`, snapshot | Desired effective light output after policy arbitration. |
-| `allow_flags` | `scheduler` | `lightctl`, diagnostics | Bitset representation of target output. |
+- elapsed-time recovery fields: `fault_recovery_elapsed_ms`, `fault_recovery_window_ms`
+- v2.0 vehicle-state fields: `gear`, `ambient_light`, `hazard`, `drive_mode`
 
-The separate `fault_mode_shared` memory region is a compact mode slot used by `fault_mg` to publish mode updates to domains that need a low-overhead fault-mode observation path.
+The contract layer validates:
 
-## Runtime Contract Checks
+- layout version
+- transport version/type/length
+- fault mode/lifecycle/recovery bounds
+- active fault mask
+- known Microkit channel ids
 
-Compatibility checks are centralized in `light_contract.c`:
+Runtime evidence:
 
-| Contract | Runtime evidence |
-| --- | --- |
-| Shared-memory layout version and fault snapshot bounds | `SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, `FAULTMG_CONTRACT fault_snapshot=...`, `STATUS_SNAPSHOT contract=...` |
-| Transport version, type, and payload length | `SCHED_CONTRACT_REJECT`, `VEHICLE_STATE_CONTRACT_REJECT`, `FAULTMG_CONTRACT_REJECT`, `CMD_CONTRACT_REJECT` |
-| Known Microkit channel endpoint table | `make test-contract` |
+```text
+SCHED_INIT module=scheduler status=ready layout=4
+STATUS_SNAPSHOT ... layout=4 contract=OK
+```
 
-These checks turn implicit assumptions into explicit engineering evidence.
+## Vehicle-State Model
 
-## Fault Mode Ownership
+| Field | Meaning | Example command |
+| --- | --- | --- |
+| `speed_kph` | Vehicle speed | `speed=80` |
+| `ignition_on` | Ignition state | `ignition=1` |
+| `brake_pedal` | Brake pedal state | `brake=1` |
+| `gear` | Park/reverse/neutral/drive | `gear=reverse` |
+| `ambient_light` | Day/dusk/night | `ambient=night` |
+| `hazard` | Hazard warning request | `hazard=1` |
+| `drive_mode` | City/highway/parking/emergency | `mode=emergency` |
 
-`fault_mg` is the only owner of fault mode because fault mode is global safety state. Allowing several domains to mutate it would create race-prone and hard-to-review behavior, especially when a clear request and a new fault event happen close together.
+## Channel Map
 
-The ownership rule is:
+Channel IDs remain centralized in `include/light_channels.h` and synchronized with `systems/light.system`. Existing Microkit communication semantics are preserved across the v2.0 source reorganization.
 
-- Other domains may report fault events.
-- Other domains may request clear/recovery observation through transport.
-- Only `fault_mg` mutates `fault_mode`, `fault_lifecycle`, `active_fault_mask`, `recovery_ticks`, and fault counters.
-- `fault_mg` publishes the resulting state, notifies `gpio` and `scheduler`, and relies on scheduler synchronization for downstream `lightctl` updates.
+## Source Layout
 
-This keeps escalation, recovery, and anti-flap behavior explainable and testable in `light_fault_mode.c`.
+```text
+src/domains/   Microkit PD entrypoints
+src/core/      host-testable logic and contracts
+src/support/   printf/util support code
+include/       public interfaces
+systems/       Microkit system descriptions
+tests/         host-side tests
+scripts/       QEMU and evidence scripts
+reports/       defense-facing summaries
+```
 
-## Behavior Preserved During Cleanup
+## Accepted Evidence
 
-Documentation and source-comment cleanup must not change the Microkit communication semantics:
-
-- Protection domain names remain the same.
-- Channel IDs remain the same.
-- Shared memory region names, virtual addresses, and `setvar_vaddr` bindings remain the same.
-- The `light_transport_message_t` wire shape remains the same.
-- `light_shmem_t` layout version remains explicit and is only changed with a coordinated compatibility update.
-- Fault mode transitions remain owned by `fault_mg`.
-- GPIO action channels remain one notification per concrete action.
-
-When refactoring code, keep these contracts stable unless the task explicitly asks for a communication refactor.
+Final architecture evidence is archived under `test-results/final-v2.0/` and summarized by `reports/final_v2_showcase.md`.

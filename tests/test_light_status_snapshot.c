@@ -17,14 +17,20 @@ static void test_snapshot_capture_reads_shared_state_consistently(void) {
     light_status_snapshot_t snapshot;
 
     memset(&shmem, 0, sizeof(shmem));
-    shmem.layout_version = LIGHT_SHARED_STATE_LAYOUT_V3;
+    shmem.layout_version = LIGHT_SHARED_STATE_LAYOUT_CURRENT;
     shmem.fault_mode = LIGHT_FAULT_MODE_DEGRADED;
     shmem.fault_lifecycle = LIGHT_FAULT_LIFECYCLE_RECOVERING;
     shmem.fault_recovery_ticks = 1U;
+    shmem.fault_recovery_elapsed_ms = 1000U;
+    shmem.fault_recovery_window_ms = light_fault_recovery_window_ms();
     shmem.active_fault_mask = 0U;
     shmem.vehicle_state.speed_kph = 88U;
     shmem.vehicle_state.ignition_on = 1U;
     shmem.vehicle_state.brake_pedal = 0U;
+    shmem.vehicle_state.gear = LIGHT_VEHICLE_GEAR_DRIVE;
+    shmem.vehicle_state.ambient_light = LIGHT_VEHICLE_AMBIENT_NIGHT;
+    shmem.vehicle_state.hazard = 1U;
+    shmem.vehicle_state.drive_mode = LIGHT_VEHICLE_DRIVE_MODE_EMERGENCY;
     shmem.target_output.low_beam_on = 1U;
     shmem.target_output.marker_on = 1U;
     shmem.allow_flags = 0x28U;
@@ -41,6 +47,8 @@ static void test_snapshot_capture_reads_shared_state_consistently(void) {
                 "snapshot should preserve lifecycle");
     expect_true(snapshot.recovery_ticks == 1U,
                 "snapshot should preserve recovery ticks");
+    expect_true(snapshot.recovery_elapsed_ms == 1000U,
+                "snapshot should preserve recovery elapsed time");
     expect_true(snapshot.vehicle_state.speed_kph == 88U,
                 "snapshot should preserve speed");
     expect_true(snapshot.target_output.low_beam_on == 1U,
@@ -51,16 +59,22 @@ static void test_snapshot_capture_reads_shared_state_consistently(void) {
 
 static void test_snapshot_format_emits_unified_status_line(void) {
     light_status_snapshot_t snapshot;
-    char buf[384];
+    char buf[512];
     int len;
 
     memset(&snapshot, 0, sizeof(snapshot));
     snapshot.fault_mode = LIGHT_FAULT_MODE_SAFE_MODE;
     snapshot.lifecycle = LIGHT_FAULT_LIFECYCLE_RECOVERING;
     snapshot.recovery_ticks = 1U;
+    snapshot.recovery_elapsed_ms = 1000U;
+    snapshot.recovery_window_ms = light_fault_recovery_window_ms();
     snapshot.vehicle_state.speed_kph = 5U;
     snapshot.vehicle_state.ignition_on = 1U;
     snapshot.vehicle_state.brake_pedal = 1U;
+    snapshot.vehicle_state.gear = LIGHT_VEHICLE_GEAR_DRIVE;
+    snapshot.vehicle_state.ambient_light = LIGHT_VEHICLE_AMBIENT_NIGHT;
+    snapshot.vehicle_state.hazard = 1U;
+    snapshot.vehicle_state.drive_mode = LIGHT_VEHICLE_DRIVE_MODE_EMERGENCY;
     snapshot.target_output.low_beam_on = 1U;
     snapshot.target_output.marker_on = 1U;
     snapshot.target_output.brake_on = 1U;
@@ -77,8 +91,12 @@ static void test_snapshot_format_emits_unified_status_line(void) {
                 "snapshot formatter should include lifecycle");
     expect_true(strstr(buf, "recovery_ticks=1/2") != NULL,
                 "snapshot formatter should include recovery progress");
+    expect_true(strstr(buf, "recovery_elapsed_ms=1000/2000") != NULL,
+                "snapshot formatter should include recovery elapsed-time progress");
     expect_true(strstr(buf, "speed=5") != NULL,
                 "snapshot formatter should include vehicle speed");
+    expect_true(strstr(buf, "gear=3 ambient=2 hazard=1 drive_mode=3") != NULL,
+                "snapshot formatter should include v2.0 vehicle model fields");
     expect_true(strstr(buf, "target[low=1 high=0 left=0 right=0 marker=1 brake=1]") != NULL,
                 "snapshot formatter should include target output");
     expect_true(strstr(buf, "contract=OK") != NULL,

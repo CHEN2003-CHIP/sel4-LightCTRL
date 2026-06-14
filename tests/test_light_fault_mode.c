@@ -95,6 +95,25 @@ static void test_fault_code_names_are_stable_evidence_tokens(void) {
                 "unknown fault codes should be explicit");
 }
 
+static void test_fault_taxonomy_covers_supported_faults(void) {
+    const light_fault_taxonomy_entry_t *entry;
+
+    entry = light_fault_taxonomy_lookup(LIGHT_ERR_SPEED_LIMIT);
+    expect_true(entry != NULL, "speed-limit fault should have taxonomy metadata");
+    expect_true(entry->source[0] == 'l', "taxonomy should expose a source token");
+
+    entry = light_fault_taxonomy_lookup(LIGHT_ERR_MODE_CONFLICT);
+    expect_true(entry != NULL, "mode-conflict fault should have taxonomy metadata");
+    expect_true(entry->severity[0] == 'D', "mode conflict severity should describe degraded threshold");
+
+    entry = light_fault_taxonomy_lookup(LIGHT_ERR_HW_STATE_ERR);
+    expect_true(entry != NULL, "hardware-state fault should have taxonomy metadata");
+    expect_true(entry->output_policy[0] == 'c', "hardware-state fault should describe conservative output");
+
+    expect_true(light_fault_taxonomy_lookup(0xeeU) == NULL,
+                "unknown fault should not have supported taxonomy metadata");
+}
+
 static void test_fault_history_records_recent_events_with_wraparound(void) {
     light_fault_state_t state = light_fault_state_init();
     light_fault_history_t history;
@@ -218,6 +237,33 @@ static void test_recovery_window_steps_down_one_level_at_a_time(void) {
                 "final recovery window should step down to NORMAL");
     expect_true(state.lifecycle == LIGHT_FAULT_LIFECYCLE_STABLE,
                 "NORMAL after recovery should return to STABLE");
+}
+
+static void test_elapsed_time_recovery_window_controls_step_down(void) {
+    light_fault_state_t state = light_fault_state_init();
+    fault_decision_t decision;
+
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    (void)light_fault_mode_record_error(&state, LIGHT_ERR_HW_STATE_ERR);
+    (void)light_fault_mode_clear_active(&state);
+
+    decision = light_fault_mode_observe_recovery_at(&state, 1000U);
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_SAFE_MODE,
+                "first elapsed-time observation should start the recovery window");
+    expect_true(state.recovery_elapsed_ms == 0U,
+                "first elapsed-time observation should have zero elapsed progress");
+
+    decision = light_fault_mode_observe_recovery_at(&state, 2500U);
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_SAFE_MODE,
+                "elapsed progress below the window should not step down");
+    expect_true(state.recovery_elapsed_ms == 1500U,
+                "elapsed progress should be tracked in milliseconds");
+
+    decision = light_fault_mode_observe_recovery_at(&state, 3000U);
+    expect_true(decision.current_mode == LIGHT_FAULT_MODE_DEGRADED,
+                "elapsed recovery window should step down exactly one level");
+    expect_true(state.recovery_elapsed_ms == 0U,
+                "elapsed progress should reset after a step-down");
 }
 
 static void test_fault_during_recovery_interrupts_step_down_progress(void) {
@@ -429,10 +475,12 @@ int main(void) {
     test_non_conflict_error_resets_conflict_streak();
     test_fault_event_carries_current_owner_mode();
     test_fault_code_names_are_stable_evidence_tokens();
+    test_fault_taxonomy_covers_supported_faults();
     test_fault_history_records_recent_events_with_wraparound();
     test_fault_history_records_clear_and_recovery_tick();
     test_clear_enters_recovering_without_immediate_recovery();
     test_recovery_window_steps_down_one_level_at_a_time();
+    test_elapsed_time_recovery_window_controls_step_down();
     test_fault_during_recovery_interrupts_step_down_progress();
     test_repeated_clear_and_invalid_clear_keep_state_consistent();
     test_policy_matrix_matches_normal_mode_semantics();

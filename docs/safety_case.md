@@ -1,148 +1,81 @@
 # Safety and Fault Model
 
-This document captures the current safety argument for the lighting demo. The implementation is intentionally small, but it already has a clear fault taxonomy, escalation policy, recovery lifecycle, and anti-flap behavior.
+This document captures the final v2.0 safety argument for LightDemo.
 
 ## Safety Intent
 
-The lighting controller favors conservative output when the system detects unsafe or inconsistent behavior. The goal is not to model a complete production automotive safety case yet. The goal is to make fault behavior explicit, reviewable, and testable while preserving the Microkit protection-domain boundaries.
+The controller favors conservative output when it detects unsafe or inconsistent behavior. The project does not claim formal automotive certification; it demonstrates bounded, reviewable, and testable fault handling in a seL4/Microkit system.
 
-The current safety invariant is:
+Core invariant:
 
 ```text
-Fault handling is centralized in faultmg; execution domains may report faults,
-but they do not directly own global fault mode transitions.
+faultmg is the only owner of global fault mode and lifecycle transitions.
 ```
 
 ## Fault Taxonomy
 
-| Fault code | Name | Typical source | Meaning |
-| ---: | --- | --- | --- |
-| `0x01` | `LIGHT_ERR_SPEED_LIMIT` | `lightctl` runtime guard | Requested action conflicts with vehicle speed policy, such as high beam below 10 km/h or turn action above 120 km/h. |
-| `0x02` | `LIGHT_ERR_MODE_CONFLICT` | `lightctl` runtime guard or test injection | Requested action conflicts with current lighting state, such as disabling low beam while high beam is active or turn request during brake-active state. |
-| `0x03` | `LIGHT_ERR_INVALID_CMD` | command/channel validation | Invalid command, invalid transport message, or unexpected Microkit channel. |
-| `0x04` | `LIGHT_ERR_HW_STATE_ERR` | runtime guard or test injection | Hardware-facing state is unsafe or inconsistent enough to require conservative output. |
+| Fault code | Name | Source | Severity rule | Recovery policy | Output policy |
+| ---: | --- | --- | --- | --- | --- |
+| `0x01` | `SPEED_LIMIT` | `lightctl.runtime_guard` | `WARN` | clear then elapsed-time window | preserve requested output |
+| `0x02` | `MODE_CONFLICT` | runtime guard or test injection | `DEGRADED_AFTER_3_CONSECUTIVE` | clear then elapsed-time window | disable high beam, enforce minimum illumination |
+| `0x03` | `INVALID_CMD` | transport or channel contract | `WARN` | clear then elapsed-time window | preserve requested output |
+| `0x04` | `HW_STATE_ERR` | hardware state or test injection | `SAFE_MODE_AFTER_2` | clear then elapsed-time window | conservative low-beam and position profile |
 
-Each fault updates `last_fault_code`, `active_fault_mask`, total counters, and active counters in the fault state owned by `faultmg`.
+Runtime evidence:
+
+```text
+FAULTMG_EVENT ... name=HW_STATE_ERR severity=SAFE_MODE_AFTER_2 recovery_policy=clear_then_elapsed_window
+FAULTMG_EVENT ... name=MODE_CONFLICT severity=DEGRADED_AFTER_3_CONSECUTIVE
+```
 
 ## Fault Modes
 
-| Mode | Intent | Output policy |
+| Mode | Intent | Output behavior |
 | --- | --- | --- |
-| `NORMAL` | No active safety restriction. | Requested target output passes through policy. |
-| `WARN` | Fault observed, but output can still follow requested target. | Same output policy as normal, with fault state visible for diagnostics. |
-| `DEGRADED` | Repeated mode conflict indicates unstable command/state behavior. | High beam is forced off; minimum illumination is enforced. |
-| `SAFE_MODE` | Repeated hardware-state error indicates high-risk state. | Turn signals and high beam are forced off; low beam and position light are forced on; brake output is preserved. |
+| `NORMAL` | No active restriction | Requested target output passes through policy |
+| `WARN` | Fault observed | Output remains visible in diagnostics |
+| `DEGRADED` | Repeated mode conflict | High beam off, minimum illumination enforced |
+| `SAFE_MODE` | Repeated hardware-state error | Low beam and position on; high beam and turn outputs off; brake preserved |
 
-The output policy is implemented in `light_output_policy.c`. The runtime guard is implemented in `light_runtime_guard.c`.
-
-## Escalation Policy
-
-Fault mode is derived from active fault counters:
-
-| Condition | Result |
-| --- | --- |
-| No active fault counters | `NORMAL` |
-| Any speed-limit, mode-conflict, invalid-command, or hardware-state error | `WARN` |
-| Three consecutive `LIGHT_ERR_MODE_CONFLICT` events | `DEGRADED` |
-| Two `LIGHT_ERR_HW_STATE_ERR` events | `SAFE_MODE` |
-
-Consecutive mode-conflict count is reset by non-conflict errors. This prevents unrelated faults from accidentally building a false conflict streak.
-
-## Lifecycle States
-
-Fault mode and lifecycle are separate:
+## Lifecycle
 
 | Lifecycle | Meaning |
 | --- | --- |
-| `STABLE` | No active fault and no recovery in progress. |
-| `ACTIVE` | One or more active faults are present. |
-| `RECOVERING` | Active faults were cleared, but the system has not yet returned directly to `NORMAL`. |
+| `STABLE` | No active fault and no recovery in progress |
+| `ACTIVE` | One or more active fault markers exist |
+| `RECOVERING` | Active faults were cleared but the system is still stepping down severity |
 
-This separation matters because a system can have no active fault markers while still intentionally staying in `SAFE_MODE` or `DEGRADED` during observation.
+## Elapsed-Time Recovery
 
-## Recovery Policy
+v2.0 replaces a purely observation-count recovery story with an elapsed-time recovery window. The accepted configured window is visible in logs:
 
-`clear` does not immediately restore `NORMAL`.
+```text
+recovery_elapsed_ms=1000 recovery_window_ms=2000
+STATUS_SNAPSHOT ... recovery_elapsed_ms=0/2000 ... layout=4 contract=OK
+```
 
-Current recovery behavior:
+Recovery rules:
 
-1. A fault event enters `ACTIVE` and derives the current fault mode.
-2. A valid clear request removes active fault markers.
-3. If the mode is above `NORMAL`, lifecycle moves to `RECOVERING`.
-4. Each healthy observation tick advances `recovery_ticks`.
-5. Once the recovery window is satisfied, the mode steps down exactly one level.
-6. The system repeats observation until it returns to `NORMAL`.
-7. When mode reaches `NORMAL`, lifecycle returns to `STABLE`.
-
-The current recovery window is `2` observation ticks, defined by `LIGHT_FAULT_RECOVERY_WINDOW_TICKS` in `light_fault_mode.c`.
-
-## Anti-Flap Behavior
-
-If a new fault occurs while the system is recovering:
-
-- lifecycle returns to `ACTIVE`
-- `recovery_ticks` resets to zero
-- active fault mask is updated
-- the system does not immediately reduce severity simply because active counters were previously cleared
-
-This is the anti-flap behavior. It prevents a repeated clear/fault pattern from quickly bouncing the system back to `NORMAL`.
+1. Fault events enter `ACTIVE`.
+2. Clear removes active fault markers.
+3. If mode is above `NORMAL`, lifecycle becomes `RECOVERING`.
+4. Recovery progress is measured against an elapsed-time window.
+5. A satisfied window steps down exactly one fault mode level.
+6. New faults during recovery interrupt recovery and return lifecycle to `ACTIVE`.
+7. Returning to `NORMAL` returns lifecycle to `STABLE`.
 
 ## Observable Evidence
 
-The safety model is visible through:
-
-- `STATUS_SNAPSHOT` query output from `commandin`, including layout, contract status, and readable `last_fault_name`
-- `SCHED_CONTRACT`, `LIGHTCTL_CONTRACT`, and `FAULTMG_CONTRACT` compatibility logs
-- `*_CONTRACT_REJECT reason=...` logs for invalid transport or channel evidence
-- `FAULTMG_MODE_TRANSITION` logs
-- `FAULTMG_CLEAR` and `FAULTMG_RECOVERY_TICK` logs
-- `FAULTMG_HISTORY` logs for recent event, clear, and recovery-tick evidence
-- `LIGHTCTL_TARGET_SUMMARY` logs
-- host-side contract checks in `tests/test_light_contract.c`
-- host-side tests in `tests/test_light_fault_mode.c`
-- QEMU fault-injection and serial E2E scripts under `scripts/`
-
-Recommended validation:
-
-```bash
-make test
-make test-contract
-make qemu-test
-```
-
-Latest accepted evidence is preserved under `test-results/report-v6/`.
-The serial E2E log includes:
-
-```text
-STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=ACTIVE ... layout=3 contract=OK
-STATUS_SNAPSHOT fault=SAFE_MODE lifecycle=RECOVERING ... layout=3 contract=OK
-STATUS_SNAPSHOT fault=DEGRADED lifecycle=RECOVERING ... layout=3 contract=OK
-```
-
-This confirms that fault escalation, clear-to-recovery, recovery step-down, and
-runtime contract visibility are all covered by QEMU evidence.
-
-Fault Lifecycle v2 adds a recent-history diagnostic line without changing the
-shared-memory layout:
-
-```text
-FAULTMG_HISTORY seq=... event=ERROR code_name=HW_STATE_ERR mode=SAFE_MODE lifecycle=ACTIVE ...
-FAULTMG_HISTORY seq=... event=CLEAR code_name=NONE mode=SAFE_MODE lifecycle=RECOVERING ...
-FAULTMG_HISTORY seq=... event=RECOVERY_TICK code_name=NONE mode=DEGRADED lifecycle=RECOVERING ...
-```
-
-Useful focused checks:
-
-```bash
-make test-fault
-make test-runtime
-make test-integration-fault
-make test-serial-e2e
-```
+- `STATUS_SNAPSHOT ... layout=4 contract=OK`
+- `FAULTMG_EVENT ... severity=... recovery_policy=... output_policy=...`
+- `FAULTMG_HISTORY ... event=ERROR/CLEAR/RECOVERY_TICK`
+- `SCHED_TARGET ... gear=... ambient=... hazard=... drive_mode=...`
+- `make test-fault`
+- `make test-serial-e2e`
+- `make test-integration-fault`
 
 ## Current Limits
 
-- Recovery uses observation ticks, not a real-time clock source.
-- Fault taxonomy is intentionally small and should be expanded before claiming production realism.
-- Fault severity thresholds are project policy constants, not derived from an automotive standard.
-- The current evidence is suitable for engineering practice review, not formal certification.
+- Validation is QEMU-based.
+- Real-board GPIO electrical behavior is not claimed as completed.
+- Fault thresholds are project policy constants, not certification-derived safety limits.

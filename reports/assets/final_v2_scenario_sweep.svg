@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="560" viewBox="0 0 900 560" role="img" aria-labelledby="title desc">
+  <title id="title">Figure 2. Scenario sweep design</title>
+  <desc id="desc">A grayscale bar chart showing the number of values in each sweep input dimension, producing 46080 rows.</desc>
+  <rect width="900" height="560" fill="#ffffff"/>
+  <text x="450" y="34" text-anchor="middle" font-family="Times New Roman, serif" font-size="20" font-weight="700" fill="#111111">Figure 2. Input Dimensions of the Vehicle/Fault Scenario Sweep</text>
+  <text x="450" y="58" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">Total combinations: 46,080 rows = product of all swept input dimensions</text>
+
+  <line x1="110" y1="425" x2="835" y2="425" stroke="#111111" stroke-width="1.5"/>
+  <line x1="110" y1="105" x2="110" y2="425" stroke="#111111" stroke-width="1.5"/>
+  <g stroke="#d0d0d0" stroke-width="1">
+    <line x1="110" y1="372" x2="835" y2="372"/>
+    <line x1="110" y1="318" x2="835" y2="318"/>
+    <line x1="110" y1="265" x2="835" y2="265"/>
+    <line x1="110" y1="212" x2="835" y2="212"/>
+    <line x1="110" y1="158" x2="835" y2="158"/>
+    <line x1="110" y1="105" x2="835" y2="105"/>
+  </g>
+
+  <g font-family="Times New Roman, serif" font-size="13" fill="#111111">
+    <text x="88" y="429">0</text>
+    <text x="88" y="376">1</text>
+    <text x="88" y="322">2</text>
+    <text x="88" y="269">3</text>
+    <text x="88" y="216">4</text>
+    <text x="88" y="162">5</text>
+    <text x="88" y="109">6</text>
+    <text x="36" y="280" transform="rotate(-90 36 280)">Number of values</text>
+  </g>
+
+  <g fill="#e6e6e6" stroke="#111111" stroke-width="1.1">
+    <rect x="140" y="158" width="48" height="267"/>
+    <rect x="215" y="105" width="48" height="320"/>
+    <rect x="290" y="318" width="48" height="107"/>
+    <rect x="365" y="318" width="48" height="107"/>
+    <rect x="440" y="212" width="48" height="213"/>
+    <rect x="515" y="265" width="48" height="160"/>
+    <rect x="590" y="318" width="48" height="107"/>
+    <rect x="665" y="212" width="48" height="213"/>
+    <rect x="740" y="212" width="48" height="213"/>
+  </g>
+
+  <g font-family="Times New Roman, serif" fill="#111111" font-size="13">
+    <text x="164" y="150" text-anchor="middle">5</text>
+    <text x="239" y="97" text-anchor="middle">6</text>
+    <text x="314" y="310" text-anchor="middle">2</text>
+    <text x="389" y="310" text-anchor="middle">2</text>
+    <text x="464" y="204" text-anchor="middle">4</text>
+    <text x="539" y="257" text-anchor="middle">3</text>
+    <text x="614" y="310" text-anchor="middle">2</text>
+    <text x="689" y="204" text-anchor="middle">4</text>
+    <text x="764" y="204" text-anchor="middle">4</text>
+    <text x="164" y="449" text-anchor="middle">request</text>
+    <text x="239" y="449" text-anchor="middle">speed</text>
+    <text x="314" y="449" text-anchor="middle">ignition</text>
+    <text x="389" y="449" text-anchor="middle">brake</text>
+    <text x="464" y="449" text-anchor="middle">gear</text>
+    <text x="539" y="449" text-anchor="middle">ambient</text>
+    <text x="614" y="449" text-anchor="middle">hazard</text>
+    <text x="689" y="449" text-anchor="middle">drive</text>
+    <text x="764" y="449" text-anchor="middle">fault</text>
+  </g>
+
+  <text x="450" y="505" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">The dataset is a full Cartesian product of the listed input dimensions.</text>
+</svg>

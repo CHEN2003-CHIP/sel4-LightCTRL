@@ -56,6 +56,57 @@ static void test_ignition_and_brake_requests_are_explicit(void) {
     expect_true(result.next_state.brake_pedal == 0U, "brake off should clear brake pedal");
 }
 
+static void test_v2_vehicle_model_fields_are_explicit(void) {
+    light_vehicle_state_t state = default_vehicle_state();
+    light_vehicle_state_update_result_t result;
+
+    result = light_vehicle_state_apply_request(state,
+                                               request(LIGHT_VEHICLE_FIELD_GEAR,
+                                                       LIGHT_VEHICLE_GEAR_REVERSE));
+    expect_true(result.accepted, "gear update should be accepted");
+    expect_true(result.next_state.gear == LIGHT_VEHICLE_GEAR_REVERSE,
+                "gear update should preserve requested gear");
+
+    result = light_vehicle_state_apply_request(result.next_state,
+                                               request(LIGHT_VEHICLE_FIELD_AMBIENT_LIGHT,
+                                                       LIGHT_VEHICLE_AMBIENT_NIGHT));
+    expect_true(result.next_state.ambient_light == LIGHT_VEHICLE_AMBIENT_NIGHT,
+                "ambient light update should preserve requested level");
+
+    result = light_vehicle_state_apply_request(result.next_state,
+                                               request(LIGHT_VEHICLE_FIELD_HAZARD, 1U));
+    expect_true(result.next_state.hazard == 1U, "hazard update should enable hazard state");
+
+    result = light_vehicle_state_apply_request(result.next_state,
+                                               request(LIGHT_VEHICLE_FIELD_DRIVE_MODE,
+                                                       LIGHT_VEHICLE_DRIVE_MODE_EMERGENCY));
+    expect_true(result.next_state.drive_mode == LIGHT_VEHICLE_DRIVE_MODE_EMERGENCY,
+                "drive mode update should preserve requested mode");
+}
+
+static void test_v2_vehicle_model_rejects_out_of_range_values(void) {
+    light_vehicle_state_t state = default_vehicle_state();
+
+    expect_true(!light_vehicle_state_apply_request(state,
+                                                   request(LIGHT_VEHICLE_FIELD_GEAR, 4U)).accepted,
+                "unknown gear should be rejected");
+    expect_true(!light_vehicle_state_apply_request(state,
+                                                   request(LIGHT_VEHICLE_FIELD_AMBIENT_LIGHT, 3U)).accepted,
+                "unknown ambient light level should be rejected");
+    expect_true(!light_vehicle_state_apply_request(state,
+                                                   request(LIGHT_VEHICLE_FIELD_DRIVE_MODE, 4U)).accepted,
+                "unknown drive mode should be rejected");
+}
+
+static void test_vehicle_model_names_are_stable_tokens(void) {
+    expect_true(light_vehicle_gear_name(LIGHT_VEHICLE_GEAR_REVERSE)[0] == 'R',
+                "reverse gear should have a readable token");
+    expect_true(light_vehicle_ambient_light_name(LIGHT_VEHICLE_AMBIENT_NIGHT)[0] == 'N',
+                "night ambient light should have a readable token");
+    expect_true(light_vehicle_drive_mode_name(LIGHT_VEHICLE_DRIVE_MODE_EMERGENCY)[0] == 'E',
+                "emergency mode should have a readable token");
+}
+
 static void test_repeated_state_write_is_idempotent(void) {
     light_vehicle_state_t state = default_vehicle_state();
     light_vehicle_state_update_result_t result;
@@ -95,6 +146,9 @@ static void test_invalid_field_request_is_rejected(void) {
 int main(void) {
     test_speed_requests_update_with_explicit_value();
     test_ignition_and_brake_requests_are_explicit();
+    test_v2_vehicle_model_fields_are_explicit();
+    test_v2_vehicle_model_rejects_out_of_range_values();
+    test_vehicle_model_names_are_stable_tokens();
     test_repeated_state_write_is_idempotent();
     test_invalid_speed_request_is_rejected_without_mutation();
     test_invalid_field_request_is_rejected();

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+  <title id="title">Figure 3. Fault escalation and recovery</title>
+  <desc id="desc">Two grayscale line charts: one for fault escalation and one for elapsed-time recovery window.</desc>
+  <rect width="900" height="520" fill="#ffffff"/>
+  <text x="450" y="34" text-anchor="middle" font-family="Times New Roman, serif" font-size="20" font-weight="700" fill="#111111">Figure 3. Fault Escalation and Elapsed-Time Recovery</text>
+  <text x="450" y="58" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">Data source: QEMU fault-injection and serial E2E logs</text>
+
+  <g transform="translate(70 100)">
+    <text x="175" y="-16" text-anchor="middle" font-family="Times New Roman, serif" font-size="15" fill="#111111">(a) Fault escalation</text>
+    <line x1="55" y1="285" x2="350" y2="285" stroke="#111111" stroke-width="1.4"/>
+    <line x1="55" y1="45" x2="55" y2="285" stroke="#111111" stroke-width="1.4"/>
+    <g stroke="#d0d0d0" stroke-width="1">
+      <line x1="55" y1="205" x2="350" y2="205"/>
+      <line x1="55" y1="125" x2="350" y2="125"/>
+      <line x1="55" y1="45" x2="350" y2="45"/>
+    </g>
+    <g font-family="Times New Roman, serif" font-size="12" fill="#111111">
+      <text x="36" y="289">0</text><text x="36" y="209">1</text><text x="36" y="129">2</text><text x="36" y="49">3</text>
+      <text x="50" y="308">0</text><text x="146" y="308">1</text><text x="242" y="308">2</text><text x="338" y="308">3</text>
+      <text x="-6" y="178" transform="rotate(-90 -6 178)">Fault level</text>
+      <text x="205" y="336" text-anchor="middle">Fault observations</text>
+    </g>
+    <polyline points="55,285 153,205 251,205 349,125" fill="none" stroke="#111111" stroke-width="2.2"/>
+    <polyline points="55,285 153,205 251,45" fill="none" stroke="#666666" stroke-width="2.2" stroke-dasharray="6 4"/>
+    <g fill="#ffffff" stroke="#111111" stroke-width="1.5">
+      <circle cx="55" cy="285" r="4"/><circle cx="153" cy="205" r="4"/><circle cx="251" cy="205" r="4"/><circle cx="349" cy="125" r="4"/>
+    </g>
+    <g fill="#ffffff" stroke="#666666" stroke-width="1.5">
+      <rect x="51" y="281" width="8" height="8"/><rect x="149" y="201" width="8" height="8"/><rect x="247" y="41" width="8" height="8"/>
+    </g>
+    <line x1="90" y1="68" x2="122" y2="68" stroke="#111111" stroke-width="2.2"/>
+    <text x="130" y="72" font-family="Times New Roman, serif" font-size="12">MODE_CONFLICT</text>
+    <line x1="90" y1="90" x2="122" y2="90" stroke="#666666" stroke-width="2.2" stroke-dasharray="6 4"/>
+    <text x="130" y="94" font-family="Times New Roman, serif" font-size="12">HW_STATE_ERR</text>
+  </g>
+
+  <g transform="translate(500 100)">
+    <text x="160" y="-16" text-anchor="middle" font-family="Times New Roman, serif" font-size="15" fill="#111111">(b) Recovery window</text>
+    <line x1="55" y1="285" x2="330" y2="285" stroke="#111111" stroke-width="1.4"/>
+    <line x1="55" y1="45" x2="55" y2="285" stroke="#111111" stroke-width="1.4"/>
+    <g stroke="#d0d0d0" stroke-width="1">
+      <line x1="55" y1="165" x2="330" y2="165"/>
+      <line x1="55" y1="45" x2="330" y2="45"/>
+    </g>
+    <g font-family="Times New Roman, serif" font-size="12" fill="#111111">
+      <text x="36" y="289">0</text><text x="18" y="169">1000</text><text x="18" y="49">2000</text>
+      <text x="39" y="308">clear</text><text x="143" y="308">observe</text><text x="253" y="308">window</text>
+      <text x="-6" y="178" transform="rotate(-90 -6 178)">Elapsed time (ms)</text>
+    </g>
+    <polyline points="55,285 180,165 315,45" fill="none" stroke="#111111" stroke-width="2.2"/>
+    <g fill="#ffffff" stroke="#111111" stroke-width="1.5">
+      <circle cx="55" cy="285" r="4"/><circle cx="180" cy="165" r="4"/><circle cx="315" cy="45" r="4"/>
+    </g>
+    <text x="185" y="83" font-family="Times New Roman, serif" font-size="12">2000 ms threshold</text>
+  </g>
+
+  <text x="450" y="485" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">Escalation is ordinal; recovery is measured in elapsed milliseconds.</text>
+</svg>

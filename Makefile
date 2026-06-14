@@ -27,7 +27,10 @@ endif
 BOARD := qemu_virt_aarch64
 MICROKIT_CONFIG := debug
 BUILD_DIR := build
-SYSTEM_DESCRIPTION := light.system
+SRC_DOMAIN_DIR := src/domains
+SRC_CORE_DIR := src/core
+SRC_SUPPORT_DIR := src/support
+SYSTEM_DESCRIPTION := systems/light.system
 TEST_RESULTS_DIR ?= test-results
 TEST_RUN_ID ?= $(shell date +%Y%m%d-%H%M%S 2>/dev/null || powershell -NoProfile -Command "Get-Date -Format yyyyMMdd-HHmmss")
 TEST_RESULTS_RUN_DIR ?= $(TEST_RESULTS_DIR)/$(TEST_RUN_ID)
@@ -59,7 +62,7 @@ FAULT_MODE_OBJS := light_fault_mode.o
 GPIO_OBJS := $(PRINTF_OBJS) $(FAULT_MODE_OBJS) gpio.o
 EXECUTION_PLAN_OBJS := light_execution_plan.o
 LIGHTCTL_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTRACT_OBJS) $(EXECUTION_PLAN_OBJS) $(RUNTIME_GUARD_OBJS) $(FAULT_MODE_OBJS) lightctl.o
-COMMANDIN_OBJS := $(PRINTF_OBJS) $(COMMAND_CODEC_OBJS) $(TRANSPORT_OBJS) $(SNAPSHOT_OBJS) $(CONTRACT_OBJS) $(FAULT_MODE_OBJS) commandin.o
+COMMANDIN_OBJS := $(PRINTF_OBJS) $(COMMAND_CODEC_OBJS) $(TRANSPORT_OBJS) $(SNAPSHOT_OBJS) $(CONTRACT_OBJS) $(FAULT_MODE_OBJS) $(VEHICLE_LOGIC_OBJS) commandin.o
 FAULT_MG_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTRACT_OBJS) $(FAULT_MODE_OBJS) faultmg.o
 SCHEDULER_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTRACT_OBJS) $(CONTROL_LOGIC_OBJS) $(OUTPUT_POLICY_OBJS) $(FAULT_MODE_OBJS) scheduler.o
 VEHICLE_STATE_OBJS := $(PRINTF_OBJS) $(PROTOCOL_OBJS) $(CONTRACT_OBJS) $(FAULT_MODE_OBJS) $(VEHICLE_LOGIC_OBJS) vehicle_state.o
@@ -74,7 +77,7 @@ IMAGES_PART_4 := gpio.elf lightctl.elf commandin.elf faultmg.elf
 IMAGES_PART_5 := gpio.elf lightctl.elf commandin.elf faultmg.elf scheduler.elf vehicle_state.elf
 IMAGES_BUILD := $(IMAGES_PART_5)
 LEGACY_TARGETS := part1 part2 part3 part4 part5
-HOST_TEST_TARGETS := test-policy test-protocol test-contract test-command test-transport test-snapshot test-control test-vehicle test-execution test-runtime test-fault test-fault-transport
+HOST_TEST_TARGETS := test-policy test-protocol test-contract test-command test-transport test-snapshot test-control test-vehicle test-execution test-runtime test-fault test-fault-transport test-vehicle-scenarios test-vehicle-sweep
 QEMU_TEST_TARGETS := smoke test-integration-fault test-serial-e2e
 #IMAGES_PART_4 := serial_server.elf client.elf wordle_server.elf vmm.elf
 # Note that these warnings being disabled is to avoid compilation errors while in the middle of completing each exercise part
@@ -104,7 +107,7 @@ CONFIG_STAMP := $(BUILD_DIR)/.microkit_config_$(MICROKIT_CONFIG)
 # DTB_IMAGE = vmm/images/linux.dtb
 # INITRD_IMAGE = vmm/images/rootfs.cpio.gz
 
-.PHONY: all build run clean debug release smoke test qemu-test evidence $(HOST_TEST_TARGETS) $(QEMU_TEST_TARGETS) help $(LEGACY_TARGETS) legacy
+.PHONY: all build run clean debug release smoke test qemu-test evidence defense-report final-evidence $(HOST_TEST_TARGETS) $(QEMU_TEST_TARGETS) help $(LEGACY_TARGETS) legacy
 
 all: build
 
@@ -117,7 +120,7 @@ release:
 	$(MAKE) build MICROKIT_CONFIG=release
 
 smoke: build
-	./scripts/smoke_test.sh
+	bash scripts/smoke_test.sh
 
 test:
 	@mkdir -p "$(TEST_RESULTS_RUN_DIR)"
@@ -153,78 +156,76 @@ qemu-test:
 
 evidence:
 	@mkdir -p "$(TEST_RESULTS_RUN_DIR)"
-	@bash -c 'set -euo pipefail; \
-		manifest="$(TEST_RESULTS_RUN_DIR)/manifest.txt"; \
-		{ \
-			printf "LightDemo validation evidence manifest\n"; \
-			printf "run_id=%s\n" "$(TEST_RUN_ID)"; \
-			printf "created_at=%s\n" "$$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date)"; \
-			printf "board=%s\n" "$(BOARD)"; \
-			printf "microkit_config=%s\n" "$(MICROKIT_CONFIG)"; \
-			printf "shared_layout=%s\n" "3"; \
-			printf "host_summary=%s\n" "$(TEST_RESULTS_RUN_DIR)/host-summary.txt"; \
-			printf "qemu_summary=%s\n" "$(TEST_RESULTS_RUN_DIR)/qemu-summary.txt"; \
-			printf "expected_status_snapshot=STATUS_SNAPSHOT ... layout=3 contract=OK\n"; \
-			printf "expected_fault_history=FAULTMG_HISTORY ... lifecycle=ACTIVE/RECOVERING\n"; \
-			printf "expected_contract_reject=*_CONTRACT_REJECT reason=...\n"; \
-		} > "$$manifest"; \
-		printf "Evidence manifest: %s\n" "$$manifest"; \
-		if [ -f "$(TEST_RESULTS_RUN_DIR)/host-summary.txt" ]; then cat "$(TEST_RESULTS_RUN_DIR)/host-summary.txt"; fi; \
-		if [ -f "$(TEST_RESULTS_RUN_DIR)/qemu-summary.txt" ]; then cat "$(TEST_RESULTS_RUN_DIR)/qemu-summary.txt"; fi'
+	@BOARD="$(BOARD)" MICROKIT_CONFIG="$(MICROKIT_CONFIG)" SHARED_LAYOUT="4" bash scripts/collect_evidence.sh "$(TEST_RESULTS_RUN_DIR)" "$(TEST_RUN_ID)"
+
+defense-report:
+	@mkdir -p reports
+	@bash scripts/defense_report.sh "$(TEST_RESULTS_RUN_DIR)" "$(TEST_RUN_ID)"
+
+final-evidence: test build qemu-test evidence defense-report
 
 test-integration-fault:
 	$(MAKE) build BUILD_DIR=build-test-hooks TEST_HOOKS=1
-	IMAGE_FILE=build-test-hooks/loader.img ./scripts/fault_injection_test.sh
+	IMAGE_FILE=build-test-hooks/loader.img bash scripts/fault_injection_test.sh
 
 test-serial-e2e: build
-	./scripts/serial_e2e_test.sh
+	bash scripts/serial_e2e_test.sh
 
 test-policy: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_policy.c light_policy.c -o build/test_light_policy
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_policy.c $(SRC_CORE_DIR)/light_policy.c -o build/test_light_policy
 	./build/test_light_policy
 
 test-protocol: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_protocol.c light_protocol.c -o build/test_light_protocol
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_protocol.c $(SRC_CORE_DIR)/light_protocol.c -o build/test_light_protocol
 	./build/test_light_protocol
 
 test-contract: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_contract.c light_contract.c light_fault_mode.c -o build/test_light_contract
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_contract.c $(SRC_CORE_DIR)/light_contract.c $(SRC_CORE_DIR)/light_fault_mode.c -o build/test_light_contract
 	./build/test_light_contract
 
 test-command: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_command_codec.c light_command_codec.c -o build/test_light_command_codec
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_command_codec.c $(SRC_CORE_DIR)/light_command_codec.c -o build/test_light_command_codec
 	./build/test_light_command_codec
 
 test-transport: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_transport.c light_transport.c light_command_codec.c -o build/test_light_transport
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_transport.c $(SRC_CORE_DIR)/light_transport.c $(SRC_CORE_DIR)/light_command_codec.c -o build/test_light_transport
 	./build/test_light_transport
 
 test-snapshot: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_status_snapshot.c light_status_snapshot.c light_contract.c light_fault_mode.c -o build/test_light_status_snapshot
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_status_snapshot.c $(SRC_CORE_DIR)/light_status_snapshot.c $(SRC_CORE_DIR)/light_contract.c $(SRC_CORE_DIR)/light_fault_mode.c -o build/test_light_status_snapshot
 	./build/test_light_status_snapshot
 
 test-control: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_control_logic.c light_control_logic.c light_output_policy.c light_protocol.c -o build/test_light_control_logic
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_control_logic.c $(SRC_CORE_DIR)/light_control_logic.c $(SRC_CORE_DIR)/light_output_policy.c $(SRC_CORE_DIR)/light_protocol.c -o build/test_light_control_logic
 	./build/test_light_control_logic
 
 test-vehicle: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_vehicle_state.c light_vehicle_state.c light_protocol.c -o build/test_light_vehicle_state
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_vehicle_state.c $(SRC_CORE_DIR)/light_vehicle_state.c $(SRC_CORE_DIR)/light_protocol.c -o build/test_light_vehicle_state
 	./build/test_light_vehicle_state
 
+test-vehicle-scenarios: | directories
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_vehicle_scenarios.c $(SRC_CORE_DIR)/light_control_logic.c $(SRC_CORE_DIR)/light_output_policy.c $(SRC_CORE_DIR)/light_protocol.c $(SRC_CORE_DIR)/light_vehicle_state.c -o build/test_light_vehicle_scenarios
+	./build/test_light_vehicle_scenarios
+
+test-vehicle-sweep: | directories
+	@mkdir -p "$(TEST_RESULTS_RUN_DIR)"
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_vehicle_sweep.c $(SRC_CORE_DIR)/light_control_logic.c $(SRC_CORE_DIR)/light_output_policy.c $(SRC_CORE_DIR)/light_protocol.c $(SRC_CORE_DIR)/light_vehicle_state.c -o build/test_light_vehicle_sweep
+	@bash -o pipefail -c './build/test_light_vehicle_sweep "$(TEST_RESULTS_RUN_DIR)/vehicle-sweep.csv" | tee "$(TEST_RESULTS_RUN_DIR)/vehicle-sweep-summary.txt"'
+
 test-execution: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_execution_plan.c light_execution_plan.c -o build/test_light_execution_plan
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_execution_plan.c $(SRC_CORE_DIR)/light_execution_plan.c -o build/test_light_execution_plan
 	./build/test_light_execution_plan
 
 test-runtime: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_runtime_guard.c light_runtime_guard.c -o build/test_light_runtime_guard
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_runtime_guard.c $(SRC_CORE_DIR)/light_runtime_guard.c -o build/test_light_runtime_guard
 	./build/test_light_runtime_guard
 
 test-fault: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode.c light_fault_mode.c light_output_policy.c light_runtime_guard.c -o build/test_light_fault_mode
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode.c $(SRC_CORE_DIR)/light_fault_mode.c $(SRC_CORE_DIR)/light_output_policy.c $(SRC_CORE_DIR)/light_runtime_guard.c -o build/test_light_fault_mode
 	./build/test_light_fault_mode
 
 test-fault-transport: | directories
-	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode_transport.c light_fault_mode.c -o build/test_light_fault_mode_transport
+	$(HOST_CC) -std=c11 -Wall -Werror -Iinclude tests/test_light_fault_mode_transport.c $(SRC_CORE_DIR)/light_fault_mode.c -o build/test_light_fault_mode_transport
 	./build/test_light_fault_mode_transport
 
 directories:
@@ -268,6 +269,8 @@ help:
 	@echo "  test     Run all host-side unit tests"
 	@echo "  qemu-test Run smoke, fault-injection, and serial E2E QEMU tests"
 	@echo "  evidence Generate a validation evidence manifest under test-results/<run-id>/"
+	@echo "  defense-report Generate a terminal/Markdown defense report from evidence"
+	@echo "  final-evidence Run tests, QEMU checks, evidence, and defense report"
 	@echo "  test-policy Run host-side policy unit tests"
 	@echo "  test-protocol Run shared-state compatibility tests"
 	@echo "  test-contract Run interface contract compatibility tests"
@@ -280,6 +283,8 @@ help:
 	@echo "  test-runtime Run host-side runtime guard unit tests"
 	@echo "  test-fault Run host-side fault mode tests"
 	@echo "  test-fault-transport Run host-side fault mode transport tests"
+	@echo "  test-vehicle-scenarios Run v2.0 vehicle scenario tests"
+	@echo "  test-vehicle-sweep Run a 46,080-row host-side vehicle/fault sweep and write CSV evidence"
 	@echo "  test-integration-fault Run QEMU fault-injection integration test (test hooks enabled)"
 	@echo "  test-serial-e2e Run a minimal serial end-to-end transport/query scenario"
 	@echo "  help     Show this help message"
@@ -310,10 +315,13 @@ part4: $(IMAGE_FILE_PART_4)
 part5: build
 # part4: directories $(BUILD_DIR)/vmm.elf $(IMAGE_FILE_PART_4)
 
-$(BUILD_DIR)/%.o: %.c Makefile $(CONFIG_STAMP)
+$(BUILD_DIR)/%.o: $(SRC_DOMAIN_DIR)/%.c Makefile $(CONFIG_STAMP)
 	$(CC) -c $(CFLAGS) $< -o $@
 
-$(BUILD_DIR)/printf.o: include/printf.c Makefile $(CONFIG_STAMP)
+$(BUILD_DIR)/%.o: $(SRC_CORE_DIR)/%.c Makefile $(CONFIG_STAMP)
+	$(CC) -c $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/printf.o: $(SRC_SUPPORT_DIR)/printf.c Makefile $(CONFIG_STAMP)
 	$(CC) -c $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/util.o: vmm/src/util/util.c Makefile $(CONFIG_STAMP)

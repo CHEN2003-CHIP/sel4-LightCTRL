@@ -44,6 +44,28 @@ static void test_vehicle_state_protocol_parses_structured_requests(void) {
     expect_true(request.field == LIGHT_VEHICLE_FIELD_BRAKE_PEDAL,
                 "brake assignment should target brake field");
     expect_true(request.value == 0U, "brake assignment should preserve explicit value");
+
+    expect_true(light_vehicle_state_parse_line("gear=reverse", &request),
+                "gear assignment should parse");
+    expect_true(request.field == LIGHT_VEHICLE_FIELD_GEAR,
+                "gear assignment should target gear field");
+    expect_true(request.value == LIGHT_VEHICLE_GEAR_REVERSE,
+                "gear assignment should preserve named value");
+
+    expect_true(light_vehicle_state_parse_line("ambient=night", &request),
+                "ambient assignment should parse");
+    expect_true(request.field == LIGHT_VEHICLE_FIELD_AMBIENT_LIGHT,
+                "ambient assignment should target ambient light field");
+
+    expect_true(light_vehicle_state_parse_line("hazard=1", &request),
+                "hazard assignment should parse");
+    expect_true(request.field == LIGHT_VEHICLE_FIELD_HAZARD,
+                "hazard assignment should target hazard field");
+
+    expect_true(light_vehicle_state_parse_line("mode=emergency", &request),
+                "drive mode assignment should parse");
+    expect_true(request.field == LIGHT_VEHICLE_FIELD_DRIVE_MODE,
+                "drive mode assignment should target drive mode field");
 }
 
 static void test_invalid_command_is_rejected(void) {
@@ -63,6 +85,14 @@ static void test_invalid_vehicle_state_lines_are_rejected(void) {
                 "invalid ignition value should be rejected");
     expect_true(!light_vehicle_state_parse_line("brake=2", &request),
                 "invalid brake value should be rejected");
+    expect_true(!light_vehicle_state_parse_line("gear=launch", &request),
+                "invalid gear should be rejected");
+    expect_true(!light_vehicle_state_parse_line("ambient=storm", &request),
+                "invalid ambient value should be rejected");
+    expect_true(!light_vehicle_state_parse_line("hazard=2", &request),
+                "invalid hazard value should be rejected");
+    expect_true(!light_vehicle_state_parse_line("mode=race", &request),
+                "invalid drive mode should be rejected");
     expect_true(!light_vehicle_state_parse_line("unknown=1", &request),
                 "unknown field should be rejected");
 }

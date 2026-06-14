@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="500" viewBox="0 0 900 500" role="img" aria-labelledby="title desc">
+  <title id="title">Figure 5. Output distribution in the scenario sweep</title>
+  <desc id="desc">A grayscale bar chart showing ON percentages for low beam, high beam, left turn, right turn, marker, and brake outputs.</desc>
+  <rect width="900" height="500" fill="#ffffff"/>
+  <text x="450" y="34" text-anchor="middle" font-family="Times New Roman, serif" font-size="20" font-weight="700" fill="#111111">Figure 5. Output Distribution in the 46,080-Row Sweep</text>
+  <text x="450" y="58" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">Percentage of rows in which each lamp output is ON</text>
+
+  <line x1="120" y1="390" x2="815" y2="390" stroke="#111111" stroke-width="1.5"/>
+  <line x1="120" y1="90" x2="120" y2="390" stroke="#111111" stroke-width="1.5"/>
+  <g stroke="#d0d0d0" stroke-width="1">
+    <line x1="120" y1="330" x2="815" y2="330"/>
+    <line x1="120" y1="270" x2="815" y2="270"/>
+    <line x1="120" y1="210" x2="815" y2="210"/>
+    <line x1="120" y1="150" x2="815" y2="150"/>
+    <line x1="120" y1="90" x2="815" y2="90"/>
+  </g>
+  <g font-family="Times New Roman, serif" font-size="13" fill="#111111">
+    <text x="86" y="394">0</text>
+    <text x="72" y="334">20</text>
+    <text x="72" y="274">40</text>
+    <text x="72" y="214">60</text>
+    <text x="72" y="154">80</text>
+    <text x="66" y="94">100</text>
+    <text x="34" y="255" transform="rotate(-90 34 255)">ON rows (%)</text>
+  </g>
+
+  <g fill="#e6e6e6" stroke="#111111" stroke-width="1.1">
+    <rect x="165" y="178" width="70" height="212"/>
+    <rect x="265" y="388" width="70" height="2"/>
+    <rect x="365" y="316" width="70" height="74"/>
+    <rect x="465" y="320" width="70" height="70"/>
+    <rect x="565" y="90" width="70" height="300"/>
+    <rect x="665" y="210" width="70" height="180"/>
+  </g>
+
+  <g font-family="Times New Roman, serif" font-size="13" fill="#111111">
+    <text x="200" y="169" text-anchor="middle">70.68</text>
+    <text x="300" y="380" text-anchor="middle">0.57</text>
+    <text x="400" y="307" text-anchor="middle">24.61</text>
+    <text x="500" y="311" text-anchor="middle">23.44</text>
+    <text x="600" y="81" text-anchor="middle">100.00</text>
+    <text x="700" y="201" text-anchor="middle">60.00</text>
+    <text x="200" y="420" text-anchor="middle">Low</text>
+    <text x="300" y="420" text-anchor="middle">High</text>
+    <text x="400" y="420" text-anchor="middle">Left</text>
+    <text x="500" y="420" text-anchor="middle">Right</text>
+    <text x="600" y="420" text-anchor="middle">Marker</text>
+    <text x="700" y="420" text-anchor="middle">Brake</text>
+  </g>
+
+  <text x="450" y="465" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">High beam is rare because safety and context constraints suppress it in most combinations.</text>
+</svg>

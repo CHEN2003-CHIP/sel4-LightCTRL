@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+  <title id="title">Figure 1. Validation coverage</title>
+  <desc id="desc">A grayscale bar chart showing 100 percent pass rate for host tests, QEMU tests, and evidence tokens.</desc>
+  <rect width="900" height="520" fill="#ffffff"/>
+  <text x="450" y="34" text-anchor="middle" font-family="Times New Roman, serif" font-size="20" font-weight="700" fill="#111111">Figure 1. Validation Coverage of LightDemo Final v2.0</text>
+  <text x="450" y="58" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">Data source: test-results/final-v2.0/{host-summary.txt, qemu-summary.txt, manifest.txt}</text>
+
+  <line x1="120" y1="410" x2="820" y2="410" stroke="#111111" stroke-width="1.5"/>
+  <line x1="120" y1="100" x2="120" y2="410" stroke="#111111" stroke-width="1.5"/>
+
+  <g stroke="#d0d0d0" stroke-width="1">
+    <line x1="120" y1="348" x2="820" y2="348"/>
+    <line x1="120" y1="286" x2="820" y2="286"/>
+    <line x1="120" y1="224" x2="820" y2="224"/>
+    <line x1="120" y1="162" x2="820" y2="162"/>
+    <line x1="120" y1="100" x2="820" y2="100"/>
+  </g>
+
+  <g font-family="Times New Roman, serif" font-size="13" fill="#111111">
+    <text x="86" y="414">0</text>
+    <text x="72" y="352">20</text>
+    <text x="72" y="290">40</text>
+    <text x="72" y="228">60</text>
+    <text x="72" y="166">80</text>
+    <text x="66" y="104">100</text>
+    <text x="34" y="265" transform="rotate(-90 34 265)">Pass rate (%)</text>
+  </g>
+
+  <g fill="#d9d9d9" stroke="#111111" stroke-width="1.2">
+    <rect x="210" y="100" width="115" height="310"/>
+    <rect x="395" y="100" width="115" height="310"/>
+    <rect x="580" y="100" width="115" height="310"/>
+  </g>
+
+  <g font-family="Times New Roman, serif" fill="#111111">
+    <text x="267" y="92" text-anchor="middle" font-size="14">14/14</text>
+    <text x="452" y="92" text-anchor="middle" font-size="14">3/3</text>
+    <text x="637" y="92" text-anchor="middle" font-size="14">7/7</text>
+    <text x="267" y="438" text-anchor="middle" font-size="14">Host tests</text>
+    <text x="452" y="438" text-anchor="middle" font-size="14">QEMU tests</text>
+    <text x="637" y="438" text-anchor="middle" font-size="14">Evidence tokens</text>
+  </g>
+
+  <text x="450" y="482" text-anchor="middle" font-family="Times New Roman, serif" font-size="13" fill="#333333">All validation groups reach 100% within the declared QEMU-based validation scope.</text>
+</svg>

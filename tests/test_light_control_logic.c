@@ -128,6 +128,84 @@ static void test_ignition_off_cuts_drive_lighting_but_keeps_marker_request(void)
     expect_true(target_output.marker_on == 1U, "ignition off should preserve marker request");
 }
 
+static void test_night_context_enforces_low_beam_and_position(void) {
+    light_operator_request_t request = default_request();
+    light_vehicle_state_t vehicle_state = default_vehicle_state();
+    light_target_output_t target_output;
+
+    request.marker_req = 0U;
+    vehicle_state.ambient_light = LIGHT_VEHICLE_AMBIENT_NIGHT;
+
+    target_output = light_control_compute_target_output(request,
+                                                        vehicle_state,
+                                                        LIGHT_FAULT_MODE_NORMAL);
+
+    expect_true(target_output.low_beam_on == 1U,
+                "night ambient light should enforce low beam");
+    expect_true(target_output.marker_on == 1U,
+                "night ambient light should enforce marker output");
+}
+
+static void test_hazard_state_drives_both_turn_outputs(void) {
+    light_operator_request_t request = default_request();
+    light_vehicle_state_t vehicle_state = default_vehicle_state();
+    light_target_output_t target_output;
+
+    vehicle_state.hazard = 1U;
+
+    target_output = light_control_compute_target_output(request,
+                                                        vehicle_state,
+                                                        LIGHT_FAULT_MODE_NORMAL);
+
+    expect_true(target_output.left_turn_on == 1U,
+                "hazard state should drive left turn output");
+    expect_true(target_output.right_turn_on == 1U,
+                "hazard state should drive right turn output");
+}
+
+static void test_reverse_context_blocks_high_beam_and_keeps_low_beam(void) {
+    light_operator_request_t request = default_request();
+    light_vehicle_state_t vehicle_state = default_vehicle_state();
+    light_target_output_t target_output;
+
+    request.low_beam_req = 1U;
+    request.high_beam_req = 1U;
+    vehicle_state.gear = LIGHT_VEHICLE_GEAR_REVERSE;
+
+    target_output = light_control_compute_target_output(request,
+                                                        vehicle_state,
+                                                        LIGHT_FAULT_MODE_NORMAL);
+
+    expect_true(target_output.high_beam_on == 0U,
+                "reverse gear should block high beam");
+    expect_true(target_output.low_beam_on == 1U,
+                "reverse gear should preserve low beam");
+}
+
+static void test_highway_mode_raises_high_beam_speed_threshold(void) {
+    light_operator_request_t request = default_request();
+    light_vehicle_state_t vehicle_state = default_vehicle_state();
+    light_target_output_t target_output;
+
+    request.low_beam_req = 1U;
+    request.high_beam_req = 1U;
+    vehicle_state.drive_mode = LIGHT_VEHICLE_DRIVE_MODE_HIGHWAY;
+    vehicle_state.speed_kph = 20U;
+
+    target_output = light_control_compute_target_output(request,
+                                                        vehicle_state,
+                                                        LIGHT_FAULT_MODE_NORMAL);
+    expect_true(target_output.high_beam_on == 0U,
+                "highway mode should block high beam below highway threshold");
+
+    vehicle_state.speed_kph = 30U;
+    target_output = light_control_compute_target_output(request,
+                                                        vehicle_state,
+                                                        LIGHT_FAULT_MODE_NORMAL);
+    expect_true(target_output.high_beam_on == 1U,
+                "highway mode should allow high beam at the highway threshold");
+}
+
 static void test_operator_commands_update_request_state(void) {
     light_operator_request_t request = default_request();
     light_control_command_result_t result;
@@ -151,6 +229,10 @@ int main(void) {
     test_speed_and_brake_state_limit_risky_outputs();
     test_low_speed_blocks_high_beam_but_not_low_beam();
     test_ignition_off_cuts_drive_lighting_but_keeps_marker_request();
+    test_night_context_enforces_low_beam_and_position();
+    test_hazard_state_drives_both_turn_outputs();
+    test_reverse_context_blocks_high_beam_and_keeps_low_beam();
+    test_highway_mode_raises_high_beam_speed_threshold();
     test_operator_commands_update_request_state();
 
     printf("light_control_logic tests passed\n");

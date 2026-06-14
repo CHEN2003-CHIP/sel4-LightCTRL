@@ -33,6 +33,7 @@ light_contract_check_t light_contract_check_transport_message(light_transport_me
 light_contract_check_t light_contract_check_fault_snapshot(uint8_t mode,
                                                            uint8_t lifecycle,
                                                            uint8_t recovery_ticks,
+                                                           uint32_t recovery_elapsed_ms,
                                                            uint8_t active_fault_mask);
 bool light_contract_channel_is_known(uint32_t channel);
 const char *light_contract_status_name(light_contract_status_t status);

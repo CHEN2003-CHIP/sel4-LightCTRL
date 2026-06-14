@@ -41,6 +41,8 @@ typedef struct {
     light_fault_lifecycle_t lifecycle;
     uint8_t active_fault_mask;
     uint8_t recovery_ticks;
+    uint32_t recovery_window_start_ms;
+    uint32_t recovery_elapsed_ms;
     uint8_t last_fault_code;
 } light_fault_state_t;
 
@@ -75,10 +77,20 @@ typedef struct {
     uint32_t next_sequence;
 } light_fault_history_t;
 
+typedef struct {
+    uint8_t code;
+    const char *name;
+    const char *source;
+    const char *severity;
+    const char *recovery_policy;
+    const char *output_policy;
+} light_fault_taxonomy_entry_t;
+
 light_fault_state_t light_fault_state_init(void);
 void light_fault_state_reset(light_fault_state_t *state);
 fault_decision_t light_fault_mode_record_error(light_fault_state_t *state, uint8_t error_code);
 fault_decision_t light_fault_mode_clear_active(light_fault_state_t *state);
+fault_decision_t light_fault_mode_observe_recovery_at(light_fault_state_t *state, uint32_t now_ms);
 fault_decision_t light_fault_mode_observe_recovery(light_fault_state_t *state);
 light_fault_event_t light_fault_event_create(uint8_t error_code, fault_mode_t current_mode);
 void light_fault_history_reset(light_fault_history_t *history);
@@ -98,6 +110,8 @@ const char *light_fault_mode_name(fault_mode_t mode);
 const char *light_fault_lifecycle_name(light_fault_lifecycle_t lifecycle);
 const char *light_fault_history_event_type_name(light_fault_history_event_type_t event_type);
 const char *light_fault_code_name(uint8_t error_code);
+const light_fault_taxonomy_entry_t *light_fault_taxonomy_lookup(uint8_t error_code);
 uint8_t light_fault_recovery_window_ticks(void);
+uint32_t light_fault_recovery_window_ms(void);
 
 #endif

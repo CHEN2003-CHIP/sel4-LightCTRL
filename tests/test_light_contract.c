@@ -15,10 +15,12 @@ static light_shmem_t valid_shared_state(void) {
     light_shmem_t shmem;
 
     memset(&shmem, 0, sizeof(shmem));
-    shmem.layout_version = LIGHT_SHARED_STATE_LAYOUT_V3;
+    shmem.layout_version = LIGHT_SHARED_STATE_LAYOUT_CURRENT;
     shmem.fault_mode = LIGHT_FAULT_MODE_NORMAL;
     shmem.fault_lifecycle = LIGHT_FAULT_LIFECYCLE_STABLE;
     shmem.fault_recovery_ticks = 0U;
+    shmem.fault_recovery_elapsed_ms = 0U;
+    shmem.fault_recovery_window_ms = light_fault_recovery_window_ms();
     shmem.active_fault_mask = 0U;
 
     return shmem;
@@ -36,12 +38,12 @@ static void test_shared_state_contract_rejects_old_layout(void) {
     light_shmem_t shmem = valid_shared_state();
     light_contract_check_t check;
 
-    shmem.layout_version = LIGHT_SHARED_STATE_LAYOUT_V3 - 1U;
+    shmem.layout_version = LIGHT_SHARED_STATE_LAYOUT_CURRENT - 1U;
     check = light_contract_check_shared_state(&shmem);
 
     expect_true(check.status == LIGHT_CONTRACT_LAYOUT_MISMATCH,
                 "old shared memory layout should be rejected");
-    expect_true(check.expected == LIGHT_SHARED_STATE_LAYOUT_V3,
+    expect_true(check.expected == LIGHT_SHARED_STATE_LAYOUT_CURRENT,
                 "layout rejection should report expected version");
 }
 
@@ -84,6 +86,7 @@ static void test_fault_snapshot_contract_bounds_recovery_and_mask(void) {
     check = light_contract_check_fault_snapshot(LIGHT_FAULT_MODE_SAFE_MODE,
                                                 LIGHT_FAULT_LIFECYCLE_RECOVERING,
                                                 light_fault_recovery_window_ticks(),
+                                                light_fault_recovery_window_ms(),
                                                 0x0fU);
     expect_true(check.status == LIGHT_CONTRACT_OK,
                 "boundary recovery state should satisfy contract");
@@ -91,12 +94,22 @@ static void test_fault_snapshot_contract_bounds_recovery_and_mask(void) {
     check = light_contract_check_fault_snapshot(LIGHT_FAULT_MODE_SAFE_MODE,
                                                 LIGHT_FAULT_LIFECYCLE_RECOVERING,
                                                 light_fault_recovery_window_ticks() + 1U,
+                                                0U,
                                                 0x0fU);
     expect_true(check.status == LIGHT_CONTRACT_FAULT_RECOVERY,
                 "recovery ticks beyond window should be rejected");
 
     check = light_contract_check_fault_snapshot(LIGHT_FAULT_MODE_SAFE_MODE,
                                                 LIGHT_FAULT_LIFECYCLE_RECOVERING,
+                                                0U,
+                                                light_fault_recovery_window_ms() + 1U,
+                                                0x0fU);
+    expect_true(check.status == LIGHT_CONTRACT_FAULT_RECOVERY,
+                "recovery elapsed time beyond window should be rejected");
+
+    check = light_contract_check_fault_snapshot(LIGHT_FAULT_MODE_SAFE_MODE,
+                                                LIGHT_FAULT_LIFECYCLE_RECOVERING,
+                                                0U,
                                                 0U,
                                                 0x80U);
     expect_true(check.status == LIGHT_CONTRACT_FAULT_MASK,
