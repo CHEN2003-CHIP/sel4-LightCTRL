@@ -75,7 +75,8 @@ lightdemo/
 ├── docs/                 # 工程说明文档
 ├── reports/              # 答辩报告和展示板
 ├── test-results/         # 验证证据归档
-├── project-docs/         # 课程汇报文档
+├── project-mds/          # 课程汇报 Markdown 源文档
+├── project-docs/         # 课程汇报 DOCX 输出文档
 └── reference-docs/       # 参考文档
 ```
 
@@ -173,6 +174,10 @@ DEMO_FAULT  故障升级、清除和恢复窗口进度
 
 ## 文档入口
 
+- `project-mds/14.文档质量审查报告.md`：软件工程文档完整性、格式和图规范审查结果。
+- `project-mds/15.测试计划.md`：课程提交版测试计划。
+- `project-mds/16.图表清单与规范说明.md`：用例图、顺序图、状态机图和工程图规范说明。
+- `project-docs/`：由 `project-mds` 生成的 Word 文档输出目录；可使用 `python scripts/generate_project_docx.py` 重新生成。
 - `reports/final_v2_showcase.md`：答辩展示板，一屏说明结果。
 - `reports/final_v2_metrics.md`：数据图展示页，包含验证通过率、故障升级曲线、恢复窗口曲线和车辆模型增长图。
 - `reports/defense_report_final-v2.0.md`：由证据脚本生成的最终答辩报告。

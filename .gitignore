@@ -2,6 +2,9 @@ build/
 build-test-hooks/
 test-results/
 
+# Generated Word exports are local deliverables; keep Markdown sources in git.
+project-docs/*.docx
+
 # Temporary or copied working trees should not be committed.
 reference-docs/*
 !reference-docs/1.软件需求分析.doc
