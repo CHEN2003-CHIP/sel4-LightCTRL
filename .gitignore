@@ -2,12 +2,9 @@ build/
 build-test-hooks/
 test-results/
 
-# Generated Word exports are local deliverables; keep Markdown sources in git.
-project-docs/*.docx
+# Generated course DOCX deliverables are allowed in git.
+!project-docs/
+!project-docs/**
 
-# Temporary or copied working trees should not be committed.
-reference-docs/*
-!reference-docs/1.软件需求分析.doc
-!reference-docs/2.概要设计.doc
-!reference-docs/3.详细设计说明书.docx
-!reference-docs/4.用户使用手册.doc
+# Local reference documents are not part of the GitHub deliverable.
+reference-docs/

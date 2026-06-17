@@ -6,13 +6,13 @@ LightDemo 是一个基于 seL4 Microkit 的汽车灯光控制工程样板。当�
 
 | 项目 | 结果 | 证据 |
 | --- | --- | --- |
-| Host-side tests | PASS | `test-results/final-v2.0/host-summary.txt` |
-| QEMU smoke | PASS | `test-results/final-v2.0/smoke.make.log` |
-| QEMU fault integration | PASS | `test-results/final-v2.0/test-integration-fault.make.log` |
-| QEMU serial E2E | PASS | `test-results/final-v2.0/test-serial-e2e.make.log` |
-| Evidence manifest | PASS | `test-results/final-v2.0/manifest.txt` |
-| Defense report | PASS | `reports/defense_report_final-v2.0.md` |
-| Metrics dashboard | READY | `reports/final_v2_metrics.md` |
+| ✅ Host-side tests | PASS | `test-results/final-v2.0/host-summary.txt` |
+| ✅ QEMU smoke | PASS | `test-results/final-v2.0/smoke.make.log` |
+| ✅ QEMU fault integration | PASS | `test-results/final-v2.0/test-integration-fault.make.log` |
+| ✅ QEMU serial E2E | PASS | `test-results/final-v2.0/test-serial-e2e.make.log` |
+| 🧾 Evidence manifest | PASS | `test-results/final-v2.0/manifest.txt` |
+| 🛡️ Defense report | PASS | `reports/defense_report_final-v2.0.md` |
+| 📊 Metrics dashboard | READY | `reports/final_v2_metrics.md` |
 
 关键证据 token：
 
@@ -76,8 +76,7 @@ lightdemo/
 ├── reports/              # 答辩报告和展示板
 ├── test-results/         # 验证证据归档
 ├── project-mds/          # 课程汇报 Markdown 源文档
-├── project-docs/         # 课程汇报 DOCX 输出文档
-└── reference-docs/       # 参考文档
+└── project-docs/         # 课程汇报 DOCX 输出文档，可提交到 GitHub
 ```
 
 ## 构建与验证
@@ -174,13 +173,13 @@ DEMO_FAULT  故障升级、清除和恢复窗口进度
 
 ## 文档入口
 
-- `project-mds/14.文档质量审查报告.md`：软件工程文档完整性、格式和图规范审查结果。
-- `project-mds/15.测试计划.md`：课程提交版测试计划。
-- `project-mds/16.图表清单与规范说明.md`：用例图、顺序图、状态机图和工程图规范说明。
-- `project-docs/`：由 `project-mds` 生成的 Word 文档输出目录；可使用 `python scripts/generate_project_docx.py` 重新生成。
-- `reports/final_v2_showcase.md`：答辩展示板，一屏说明结果。
-- `reports/final_v2_metrics.md`：数据图展示页，包含验证通过率、故障升级曲线、恢复窗口曲线和车辆模型增长图。
-- `reports/defense_report_final-v2.0.md`：由证据脚本生成的最终答辩报告。
+- 📝 `project-mds/14.文档质量审查报告.md`：软件工程文档完整性、格式和图规范审查结果。
+- 🧪 `project-mds/15.测试计划.md`：课程提交版测试计划。
+- 🗂️ `project-mds/16.图表清单与规范说明.md`：用例图、顺序图、状态机图和工程图规范说明。
+- 📦 `project-docs/`：由 `project-mds` 生成的 Word 文档输出目录；可提交到 GitHub，也可使用 `python scripts/generate_project_docx.py` 重新生成。
+- 🖥️ `reports/final_v2_showcase.md`：答辩展示板，一屏说明结果。
+- 📊 `reports/final_v2_metrics.md`：数据图展示页，包含验证通过率、故障升级曲线、恢复窗口曲线、车辆模型增长图和输出分布图。
+- 🛡️ `reports/defense_report_final-v2.0.md`：由证据脚本生成的最终答辩报告。
 - `docs/release_baseline.md`：v2.0 release baseline。
 - `docs/validation_report.md`：最终验证报告。
 - `docs/architecture.md`：架构和保护域边界。
