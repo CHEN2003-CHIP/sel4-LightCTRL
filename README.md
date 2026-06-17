@@ -14,6 +14,20 @@ LightDemo 是一个基于 seL4 Microkit 的汽车灯光控制工程样板。当�
 | 🛡️ Defense report | PASS | `reports/defense_report_final-v2.0.md` |
 | 📊 Metrics dashboard | READY | `reports/final_v2_metrics.md` |
 
+## Final v2.0 图表预览
+
+完整图表说明见 `reports/final_v2_metrics.md`。
+
+![Figure 1. Validation coverage](reports/assets/final_v2_validation_overview.svg)
+
+![Figure 2. Scenario sweep design](reports/assets/final_v2_scenario_sweep.svg)
+
+![Figure 3. Fault escalation and recovery](reports/assets/final_v2_fault_recovery.svg)
+
+![Figure 4. Vehicle model size](reports/assets/final_v2_vehicle_model.svg)
+
+![Figure 5. Output distribution](reports/assets/final_v2_output_distribution.svg)
+
 关键证据 token：
 
 ```text
